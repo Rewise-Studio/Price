@@ -15,6 +15,9 @@ CHANNEL_ID = -5226279696
 
 (NAME, PHONE, ITEM_TYPE, BRAND, DEPT, SERVICE, QTY, EXTRA200, NEXT) = range(9)
 
+BTN_BACK = "↩️ Назад"
+BTN_CANCEL = "❌ Отменить заказ"
+
 DEPTS = {
     "shoes": [
         ("cleaning", "Чистка / Базовый уход"),
@@ -59,12 +62,12 @@ SERVICES = {
             ('Покраска — средняя обувь', 'пара', 2000, False),
             ('Покраска — высокие сапоги', 'пара', 2800, False),
             ('Покраска — UGG и меховая', 'пара', 1800, False),
-            ('Покраска / отбеливание Midsole (боковая часть подошвы)', 'пара', 1100, False),
-            ('Отбеливание подошвы обуви Loro Piana', 'пара', 1100, False),
+            ('Покраска / отбеливание Midsole', 'пара', 1100, False),
+            ('Отбеливание подошвы Loro Piana', 'пара', 1100, False),
             ('Покраска каблуков', 'пара', 900, False),
             ('Покраска ранта обуви', 'пара', 700, False),
             ('Покраска танкетки', 'пара', 1200, False),
-            ('Глассаж — полировка гладкой кожи до блеска (отдельная услуга)', 'пара', 600, False),
+            ('Глассаж — полировка гладкой кожи до блеска', 'пара', 600, False),
             ('Реставрация — летняя обувь', 'пара', 1600, True),
             ('Реставрация — низкая обувь', 'пара', 2000, True),
             ('Реставрация — средняя обувь', 'пара', 2200, True),
@@ -84,7 +87,7 @@ SERVICES = {
             ('Набойки металлические — шпилька', 'пара', 700, False),
             ('Наращивание каблуков', 'пара', 400, False),
             ('Выравнивание каблука под набойку', 'пара', 250, False),
-            ('Демонтаж металлического штифта перед заменой набойки', 'пара', 250, False),
+            ('Демонтаж металлического штифта', 'пара', 250, False),
             ('Замена каблуков без обтяжки', 'пара', 1800, False),
             ('Замена каблуков с обтяжкой кожей', 'пара', 2500, False),
             ('Замена обтяжки каблуков — новая набойка включена', 'пара', 2400, False),
@@ -122,6 +125,20 @@ SERVICES = {
             ('Замена супинатора', '1 шт.', 600, False),
             ('Мелкий ремонт', '1 шт.', 400, False),
         ],
+        'zippers': [
+            ('Замена молнии до 20 см (без стоимости материала)', '1 шт.', 700, False),
+            ('Замена молнии от 21 см (без стоимости материала)', '1 шт.', 900, False),
+            ('Замена бегунка молнии', '1 шт.', 300, False),
+            ('Врезание молнии в голенище (без стоимости материала)', 'пара', 2200, False),
+            ('Мелкий ремонт', '1 шт.', 400, False),
+        ],
+        'hardware': [
+            ('Замена крючков + резинка', 'пара', 500, False),
+            ('Замена пряжки (без стоимости материала)', 'пара', 450, False),
+            ('Замена блочка и люверса', '1 шт.', 200, False),
+            ('Замена кнопки (без разбора изделия)', '1 шт.', 200, False),
+            ('Мелкий ремонт', '1 шт.', 400, False),
+        ],
         'sewing': [
             ('Восстановление машинной строчки (одно место)', '1 место', 300, False),
             ('Восстановление ручной строчки (одно место)', '1 место', 500, False),
@@ -147,23 +164,9 @@ SERVICES = {
             ('Изготовление и замена ремешков обуви', 'пара', 1600, False),
             ('Мелкий ремонт', '1 шт.', 400, False),
         ],
-        'zippers': [
-            ('Замена молнии до 20 см (без стоимости материала)', '1 шт.', 700, False),
-            ('Замена молнии от 21 см (без стоимости материала)', '1 шт.', 900, False),
-            ('Замена бегунка молнии', '1 шт.', 300, False),
-            ('Врезание молнии в голенище (без стоимости материала)', 'пара', 2200, False),
-            ('Мелкий ремонт', '1 шт.', 400, False),
-        ],
         'stretch': [
             ('Растяжка обуви в подъёме / ширина', 'пара', 600, False),
             ('Растяжка голенища сапог / ботинок', 'пара', 1000, False),
-            ('Мелкий ремонт', '1 шт.', 400, False),
-        ],
-        'hardware': [
-            ('Замена крючков + резинка', 'пара', 500, False),
-            ('Замена пряжки (без стоимости материала)', 'пара', 450, False),
-            ('Замена блочка и люверса', '1 шт.', 200, False),
-            ('Замена кнопки (без разбора изделия)', '1 шт.', 200, False),
             ('Мелкий ремонт', '1 шт.', 400, False),
         ],
     },
@@ -191,12 +194,30 @@ SERVICES = {
             ('Реставрация плечевого ремня сумки', '1 шт.', 1600, True),
             ('Мелкий ремонт', '1 шт.', 400, False),
         ],
-        'edges': [
-            ('Торцевание уреза кожи', '1 см', 12, False),
-            ('Торцевание ручек сумки (2 стороны)', 'пара', 1200, False),
-            ('Торцевание ручек сумки (4 стороны)', 'пара', 1400, False),
-            ('Торцевание плечевого ремня сумки', '1 шт.', 1400, False),
-            ('Торцевание тренчика / пулера / держателя ручек', '1 шт.', 400, False),
+        'handles': [
+            ('Укорачивание плечевого ремня сумки', '1 шт.', 450, False),
+            ('Замена плечевого ремня сумки с подбором кожи', '1 шт.', 2000, False),
+            ('Замена ручек сумки типа шопер', 'пара', 1600, False),
+            ('Замена ручек кожаной сумки с подбором кожи', 'пара', 2800, False),
+            ('Замена ручек рюкзака с наполнителем', 'пара', 3200, False),
+            ('Мелкий ремонт', '1 шт.', 400, False),
+        ],
+        'zippers': [
+            ('Замена молнии сумки до 25 см (без стоимости материала)', '1 шт.', 1400, False),
+            ('Замена молнии сумки от 25 см (без стоимости материала)', '1 шт.', 1600, False),
+            ('Замена молнии в кошельке / органайзере (без стоимости материала)', '1 шт.', 1800, False),
+            ('Замена молнии рюкзака / большой сумки (без стоимости материала)', '1 шт.', 1600, False),
+            ('Замена бегунка молнии сумки', '1 шт.', 300, False),
+            ('Мелкий ремонт', '1 шт.', 400, False),
+        ],
+        'hardware': [
+            ('Замена карабина сумки (без стоимости материала)', '1 шт.', 250, False),
+            ('Замена пряжки ремня сумки (без стоимости материала)', '1 шт.', 250, False),
+            ('Замена кнопки / заклёпки / люверса сумки', '1 шт.', 200, False),
+            ('Замена магнита сумки (без стоимости материала)', '1 шт.', 500, False),
+            ('Установка декоративной латки', '1 шт.', 900, False),
+            ('Установка внутренней латки', '1 шт.', 450, False),
+            ('Установка кольца / полукольца (без стоимости материала)', '1 шт.', 250, False),
             ('Мелкий ремонт', '1 шт.', 400, False),
         ],
         'sewing': [
@@ -212,32 +233,6 @@ SERVICES = {
             ('Замена окантовки сумки — кедер', '1 шт.', 1200, False),
             ('Мелкий ремонт', '1 шт.', 400, False),
         ],
-        'hardware': [
-            ('Замена карабина сумки (без стоимости материала)', '1 шт.', 250, False),
-            ('Замена пряжки ремня сумки (без стоимости материала)', '1 шт.', 250, False),
-            ('Замена кнопки / заклёпки / люверса сумки', '1 шт.', 200, False),
-            ('Замена магнита сумки (без стоимости материала)', '1 шт.', 500, False),
-            ('Установка декоративной латки', '1 шт.', 900, False),
-            ('Установка внутренней латки', '1 шт.', 450, False),
-            ('Установка кольца / полукольца (без стоимости материала)', '1 шт.', 250, False),
-            ('Мелкий ремонт', '1 шт.', 400, False),
-        ],
-        'zippers': [
-            ('Замена молнии сумки до 25 см (без стоимости материала)', '1 шт.', 1400, False),
-            ('Замена молнии сумки от 25 см (без стоимости материала)', '1 шт.', 1600, False),
-            ('Замена молнии в кошельке / органайзере (без стоимости материала)', '1 шт.', 1800, False),
-            ('Замена молнии рюкзака / большой сумки (без стоимости материала)', '1 шт.', 1600, False),
-            ('Замена бегунка молнии сумки', '1 шт.', 300, False),
-            ('Мелкий ремонт', '1 шт.', 400, False),
-        ],
-        'handles': [
-            ('Укорачивание плечевого ремня сумки', '1 шт.', 450, False),
-            ('Замена плечевого ремня сумки с подбором кожи', '1 шт.', 2000, False),
-            ('Замена ручек сумки типа шопер', 'пара', 1600, False),
-            ('Замена ручек кожаной сумки с подбором кожи', 'пара', 2800, False),
-            ('Замена ручек рюкзака с наполнителем', 'пара', 3200, False),
-            ('Мелкий ремонт', '1 шт.', 400, False),
-        ],
         'lining': [
             ('Замена подкладки — сумка S', '1 шт.', 1800, False),
             ('Замена подкладки — сумка M', '1 шт.', 2200, False),
@@ -245,24 +240,44 @@ SERVICES = {
             ('Замена подкладки — кошелёк / органайзер', '1 шт.', 2600, False),
             ('Мелкий ремонт', '1 шт.', 400, False),
         ],
+        'edges': [
+            ('Торцевание уреза кожи', '1 см', 12, False),
+            ('Торцевание ручек сумки (2 стороны)', 'пара', 1200, False),
+            ('Торцевание ручек сумки (4 стороны)', 'пара', 1400, False),
+            ('Торцевание плечевого ремня сумки', '1 шт.', 1400, False),
+            ('Торцевание тренчика / пулера / держателя ручек', '1 шт.', 400, False),
+            ('Мелкий ремонт', '1 шт.', 400, False),
+        ],
         'belt': [
             ('Пробивание отверстий', '1 шт.', 200, False),
             ('Укорачивание кожаного поясного ремня', '1 шт.', 450, False),
             ('Укорачивание поясного ремня с перешиванием пряжки', '1 шт.', 600, False),
             ('Замена подклада поясного ремня', '1 шт.', 2000, False),
-            ('Реставрация поясного ремня (проклейка,прошивка)', '1 шт.', 800, False),
+            ('Реставрация поясного ремня (проклейка, прошивка)', '1 шт.', 800, False),
             ('Мелкий ремонт', '1 шт.', 400, False),
         ],
     },
 }
+
+
 def fmt(n):
     return f"{n:,}".replace(",", " ") + " ₴"
 
-def kb(buttons, cols=2):
+
+def kb(buttons, cols=2, add_back=False, add_cancel=False):
+    all_buttons = list(buttons)
+    extra = []
+    if add_back:
+        extra.append(BTN_BACK)
+    if add_cancel:
+        extra.append(BTN_CANCEL)
     rows = []
-    for i in range(0, len(buttons), cols):
-        rows.append(buttons[i:i+cols])
+    for i in range(0, len(all_buttons), cols):
+        rows.append(all_buttons[i:i+cols])
+    if extra:
+        rows.append(extra)
     return ReplyKeyboardMarkup(rows, resize_keyboard=True, one_time_keyboard=True)
+
 
 def get_data(ctx):
     if "order" not in ctx.user_data:
@@ -272,7 +287,20 @@ def get_data(ctx):
             "cur": {"type": None, "type_label": "", "brand": "", "svcs": []},
             "total_fixed": 0, "total_approx": 0, "has_approx": False,
         }
+    if "history" not in ctx.user_data:
+        ctx.user_data["history"] = []
     return ctx.user_data["order"]
+
+
+def push_history(ctx, step, snapshot):
+    ctx.user_data["history"].append({"step": step, "snapshot": snapshot})
+
+
+def pop_history(ctx):
+    if ctx.user_data.get("history"):
+        return ctx.user_data["history"].pop()
+    return None
+
 
 async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     ctx.user_data.clear()
@@ -284,24 +312,53 @@ async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     )
     return NAME
 
+
 async def get_name(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text.strip()
+    if text == BTN_CANCEL:
+        return await cancel(update, ctx)
     d = get_data(ctx)
-    d["client"] = update.message.text.strip()
-    await update.message.reply_text("📞 *Номер телефона?*", parse_mode="Markdown")
+    d["client"] = text
+    await update.message.reply_text(
+        "📞 *Номер телефона?*",
+        parse_mode="Markdown",
+        reply_markup=kb([], add_back=False, add_cancel=True)
+    )
     return PHONE
 
+
 async def get_phone(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text.strip()
+    if text == BTN_BACK:
+        await update.message.reply_text("*Имя клиента?*", parse_mode="Markdown", reply_markup=ReplyKeyboardRemove())
+        return NAME
+    if text == BTN_CANCEL:
+        return await cancel(update, ctx)
     d = get_data(ctx)
-    d["phone"] = update.message.text.strip()
+    d["phone"] = text
     d["cur"] = {"type": None, "type_label": "", "brand": "", "svcs": []}
+    ctx.user_data["history"] = []
     is_first = len(d["items"]) == 0
-    text = "Какое изделие принёс клиент?" if is_first else "Ещё одна вещь — какое изделие?"
-    await update.message.reply_text(text, reply_markup=kb(["👟 Обувь", "👜 Сумка / Аксессуар"], cols=2))
+    msg = "Какое изделие принёс клиент?" if is_first else "Ещё одна вещь — какое изделие?"
+    await update.message.reply_text(
+        msg,
+        reply_markup=kb(["👟 Обувь", "👜 Сумка / Аксессуар"], cols=2, add_back=True, add_cancel=True)
+    )
     return ITEM_TYPE
 
+
 async def get_item_type(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text.strip()
+    if text == BTN_BACK:
+        await update.message.reply_text(
+            "📞 *Номер телефона?*",
+            parse_mode="Markdown",
+            reply_markup=kb([], add_cancel=True)
+        )
+        return PHONE
+    if text == BTN_CANCEL:
+        return await cancel(update, ctx)
     d = get_data(ctx)
-    text = update.message.text
     if "Обувь" in text:
         d["cur"]["type"] = "shoes"
         d["cur"]["type_label"] = "Обувь"
@@ -311,26 +368,49 @@ async def get_item_type(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "🏷 Бренд и модель?\n_(или напишите «без бренда»)_",
         parse_mode="Markdown",
-        reply_markup=ReplyKeyboardRemove()
+        reply_markup=kb([], add_back=True, add_cancel=True)
     )
     return BRAND
 
+
 async def get_brand(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text.strip()
+    if text == BTN_BACK:
+        d = get_data(ctx)
+        is_first = len(d["items"]) == 0
+        msg = "Какое изделие принёс клиент?" if is_first else "Ещё одна вещь — какое изделие?"
+        await update.message.reply_text(
+            msg,
+            reply_markup=kb(["👟 Обувь", "👜 Сумка / Аксессуар"], cols=2, add_back=True, add_cancel=True)
+        )
+        return ITEM_TYPE
+    if text == BTN_CANCEL:
+        return await cancel(update, ctx)
     d = get_data(ctx)
-    d["cur"]["brand"] = update.message.text.strip()
+    d["cur"]["brand"] = text
     item_type = d["cur"]["type"]
     depts = DEPTS[item_type]
     dept_buttons = [label for _, label in depts]
     await update.message.reply_text(
         f"*{d['cur']['type_label']} — {d['cur']['brand']}*\n\nКакой отдел?",
         parse_mode="Markdown",
-        reply_markup=kb(dept_buttons, cols=2)
+        reply_markup=kb(dept_buttons, cols=2, add_back=True, add_cancel=True)
     )
     return DEPT
 
+
 async def get_dept(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    d = get_data(ctx)
     text = update.message.text.strip()
+    if text == BTN_BACK:
+        await update.message.reply_text(
+            "🏷 Бренд и модель?\n_(или напишите «без бренда»)_",
+            parse_mode="Markdown",
+            reply_markup=kb([], add_back=True, add_cancel=True)
+        )
+        return BRAND
+    if text == BTN_CANCEL:
+        return await cancel(update, ctx)
+    d = get_data(ctx)
     item_type = d["cur"]["type"]
     depts = DEPTS[item_type]
     dept_id = None
@@ -339,21 +419,40 @@ async def get_dept(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             dept_id = did
             break
     if not dept_id:
-        await update.message.reply_text("Выберите отдел из списка.")
+        dept_buttons = [label for _, label in depts]
+        await update.message.reply_text(
+            "Выберите отдел из списка.",
+            reply_markup=kb(dept_buttons, cols=2, add_back=True, add_cancel=True)
+        )
         return DEPT
     ctx.user_data["dept_id"] = dept_id
+    ctx.user_data["dept_label"] = text
     svcs = SERVICES[item_type][dept_id]
     svc_buttons = [f"{name} — {'от ' if approx else ''}{fmt(price)}" for name, unit, price, approx in svcs]
     await update.message.reply_text(
         f"*{text}*\n\nВыберите услугу:",
         parse_mode="Markdown",
-        reply_markup=kb(svc_buttons, cols=1)
+        reply_markup=kb(svc_buttons, cols=1, add_back=True, add_cancel=True)
     )
     return SERVICE
 
+
 async def get_service(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    d = get_data(ctx)
     text = update.message.text.strip()
+    if text == BTN_BACK:
+        d = get_data(ctx)
+        item_type = d["cur"]["type"]
+        depts = DEPTS[item_type]
+        dept_buttons = [label for _, label in depts]
+        await update.message.reply_text(
+            f"*{d['cur']['type_label']} — {d['cur']['brand']}*\n\nКакой отдел?",
+            parse_mode="Markdown",
+            reply_markup=kb(dept_buttons, cols=2, add_back=True, add_cancel=True)
+        )
+        return DEPT
+    if text == BTN_CANCEL:
+        return await cancel(update, ctx)
+    d = get_data(ctx)
     item_type = d["cur"]["type"]
     dept_id = ctx.user_data["dept_id"]
     svcs = SERVICES[item_type][dept_id]
@@ -364,17 +463,37 @@ async def get_service(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             chosen = (name, unit, price, approx)
             break
     if not chosen:
-        await update.message.reply_text("Выберите услугу из списка.")
+        svc_buttons = [f"{name} — {'от ' if approx else ''}{fmt(price)}" for name, unit, price, approx in svcs]
+        await update.message.reply_text(
+            "Выберите услугу из списка.",
+            reply_markup=kb(svc_buttons, cols=1, add_back=True, add_cancel=True)
+        )
         return SERVICE
     ctx.user_data["chosen_svc"] = chosen
     await update.message.reply_text(
         f"Количество ({chosen[1]}):",
-        reply_markup=kb(["1", "2", "3", "Больше"], cols=4)
+        reply_markup=kb(["1", "2", "3", "Больше"], cols=4, add_back=True, add_cancel=True)
     )
     return QTY
 
+
 async def get_qty(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
+    if text == BTN_BACK:
+        d = get_data(ctx)
+        item_type = d["cur"]["type"]
+        dept_id = ctx.user_data["dept_id"]
+        dept_label = ctx.user_data["dept_label"]
+        svcs = SERVICES[item_type][dept_id]
+        svc_buttons = [f"{name} — {'от ' if approx else ''}{fmt(price)}" for name, unit, price, approx in svcs]
+        await update.message.reply_text(
+            f"*{dept_label}*\n\nВыберите услугу:",
+            parse_mode="Markdown",
+            reply_markup=kb(svc_buttons, cols=1, add_back=True, add_cancel=True)
+        )
+        return SERVICE
+    if text == BTN_CANCEL:
+        return await cancel(update, ctx)
     chosen = ctx.user_data["chosen_svc"]
     name, unit, price, approx = chosen
     try:
@@ -391,16 +510,27 @@ async def get_qty(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "Дополнительный цвет или материал?\n_(замша + кожа, лак и т.д.)_",
             parse_mode="Markdown",
-            reply_markup=kb(["✅ Да — +200 ₴", "❌ Нет"], cols=2)
+            reply_markup=kb(["✅ Да — +200 ₴", "❌ Нет"], cols=2, add_back=True, add_cancel=True)
         )
         return EXTRA200
     else:
         return await save_service(update, ctx, extra200=False)
 
+
 async def get_extra200(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text
+    text = update.message.text.strip()
+    if text == BTN_BACK:
+        chosen = ctx.user_data["chosen_svc"]
+        await update.message.reply_text(
+            f"Количество ({chosen[1]}):",
+            reply_markup=kb(["1", "2", "3", "Больше"], cols=4, add_back=True, add_cancel=True)
+        )
+        return QTY
+    if text == BTN_CANCEL:
+        return await cancel(update, ctx)
     extra200 = "Да" in text
     return await save_service(update, ctx, extra200=extra200)
+
 
 async def save_service(update, ctx, extra200):
     d = get_data(ctx)
@@ -415,24 +545,30 @@ async def save_service(update, ctx, extra200):
     extra_str = " + 200 ₴ (доп. материал)" if extra200 else ""
     await update.message.reply_text(
         f"✓ Добавлено: {svc['name']}\n{price_str}{extra_str}",
-        reply_markup=kb(["➕ Ещё одна услуга", "➕ Ещё одна вещь", "✅ Завершить заказ"], cols=1)
+        reply_markup=kb(["➕ Ещё одна услуга", "➕ Ещё одна вещь", "✅ Завершить заказ"], cols=1, add_cancel=True)
     )
     return NEXT
 
+
 async def get_next(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     d = get_data(ctx)
-    text = update.message.text
+    text = update.message.text.strip()
+    if text == BTN_CANCEL:
+        return await cancel(update, ctx)
     if "услуга" in text.lower():
         item_type = d["cur"]["type"]
         depts = DEPTS[item_type]
         dept_buttons = [label for _, label in depts]
-        await update.message.reply_text("Какой отдел?", reply_markup=kb(dept_buttons, cols=2))
+        await update.message.reply_text(
+            "Какой отдел?",
+            reply_markup=kb(dept_buttons, cols=2, add_back=True, add_cancel=True)
+        )
         return DEPT
     elif "вещь" in text.lower():
         commit_item(d)
         await update.message.reply_text(
             "Какое изделие?",
-            reply_markup=kb(["👟 Обувь", "👜 Сумка / Аксессуар"], cols=2)
+            reply_markup=kb(["👟 Обувь", "👜 Сумка / Аксессуар"], cols=2, add_back=True, add_cancel=True)
         )
         return ITEM_TYPE
     elif "завершить" in text.lower():
@@ -442,9 +578,10 @@ async def get_next(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text(
             "Выберите действие:",
-            reply_markup=kb(["➕ Ещё одна услуга", "➕ Ещё одна вещь", "✅ Завершить заказ"], cols=1)
+            reply_markup=kb(["➕ Ещё одна услуга", "➕ Ещё одна вещь", "✅ Завершить заказ"], cols=1, add_cancel=True)
         )
         return NEXT
+
 
 def commit_item(d):
     cur = d["cur"]
@@ -460,6 +597,7 @@ def commit_item(d):
             "svcs": list(cur["svcs"])
         })
     d["cur"] = {"type": None, "type_label": "", "brand": "", "svcs": []}
+
 
 async def finish_order(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     d = get_data(ctx)
@@ -496,9 +634,14 @@ async def finish_order(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         reply_markup=ReplyKeyboardRemove()
     )
 
+
 async def cancel(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Заказ отменён. Для нового нажми /start", reply_markup=ReplyKeyboardRemove())
+    await update.message.reply_text(
+        "Заказ отменён. Для нового нажми /start",
+        reply_markup=ReplyKeyboardRemove()
+    )
     return ConversationHandler.END
+
 
 def main():
     app = Application.builder().token(TOKEN).build()
@@ -520,6 +663,7 @@ def main():
     app.add_handler(conv)
     print("Бот запущен...")
     app.run_polling()
+
 
 if __name__ == "__main__":
     main()
