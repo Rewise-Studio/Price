@@ -805,17 +805,62 @@ async def finish_order(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 
 async def confirm_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "Введите номер заказа для подтверждения:\n_(например: RW-260604-1142)_",
-        parse_mode="Markdown",
-        reply_markup=ReplyKeyboardRemove()
-    )
+    try:
+        client = get_sheets_client()
+        sh = client.open_by_key(SHEET_ID)
+        ws = sh.worksheet("Заказы")
+        all_rows = ws.get_all_values()
+        data_rows = [r for r in all_rows[1:] if len(r) > 1 and r[1]]
+        last_orders = list(reversed(data_rows[-5:])) if data_rows else []
+        if last_orders:
+            buttons = []
+            for row in last_orders:
+                order_num = row[1] if len(row) > 1 else "—"
+                client_name = row[3] if len(row) > 3 else "—"
+                total = row[6] if len(row) > 6 else "—"
+                buttons.append(f"{order_num} | {client_name} | {total}")
+            buttons.append("✏️ Ввести номер вручную")
+            await update.message.reply_text(
+                "Выберите заказ для подтверждения:",
+                reply_markup=kb(buttons, cols=1, add_cancel=True)
+            )
+        else:
+            await update.message.reply_text(
+                "Введите номер заказа:\n_(например: RW-260604-1142)_",
+                parse_mode="Markdown",
+                reply_markup=kb([], add_cancel=True)
+            )
+    except Exception as e:
+        logger.error(f"Error loading orders for confirm: {e}")
+        await update.message.reply_text(
+            "Введите номер заказа:\n_(например: RW-260604-1142)_",
+            parse_mode="Markdown",
+            reply_markup=kb([], add_cancel=True)
+        )
     return CONFIRM_NUM
 
 
 async def confirm_num(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    ctx.user_data["confirm_order_num"] = update.message.text.strip()
-    await update.message.reply_text("💰 Введите финальную сумму (только цифры):")
+    text = update.message.text.strip()
+    if text == BTN_CANCEL:
+        return await cancel(update, ctx)
+    if text == "✏️ Ввести номер вручную":
+        await update.message.reply_text(
+            "Введите номер заказа:\n_(например: RW-260604-1142)_",
+            parse_mode="Markdown",
+            reply_markup=kb([], add_cancel=True)
+        )
+        return CONFIRM_NUM
+    if "|" in text:
+        order_num = text.split("|")[0].strip()
+    else:
+        order_num = text
+    ctx.user_data["confirm_order_num"] = order_num
+    await update.message.reply_text(
+        f"Заказ: *{order_num}*\n\n💰 Введите финальную сумму (только цифры):",
+        parse_mode="Markdown",
+        reply_markup=kb([], add_cancel=True)
+    )
     return CONFIRM_PRICE
 
 
