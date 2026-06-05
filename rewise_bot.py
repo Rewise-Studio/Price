@@ -33,7 +33,7 @@ def get_partners():
         values = ws.col_values(1)
         return [v for v in values if v and v != "Имя"]
     except Exception as e:
-        logger.error(f"Error getting partners: {e}")
+        logger.error(f"Error getting partners: {type(e).__name__}: {e}")
         return ["Сергей"]
 
 def log_order(data, order_num, payment, deadline, manager):
