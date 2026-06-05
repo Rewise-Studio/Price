@@ -17,7 +17,8 @@ TOKEN = os.environ.get("BOT_TOKEN", "")
 CHANNEL_ID = -5226279696
 SHEET_ID = os.environ.get("GOOGLE_SHEET_ID", "")
 
-# Google Sheets setup
+# ─── Google Sheets ───────────────────────────────────────────────────────────
+
 def get_sheets_client():
     creds_json = os.environ.get("GOOGLE_CREDENTIALS", "")
     creds_dict = json.loads(creds_json)
@@ -36,42 +37,147 @@ def get_partners():
         logger.error(f"Error getting partners: {type(e).__name__}: {e}")
         return ["Сергей"]
 
+def get_next_order_num():
+    try:
+        client = get_sheets_client()
+        sh = client.open_by_key(SHEET_ID)
+        ws = sh.worksheet("Настройки")
+        current = ws.cell(2, 2).value or 0
+        next_num = int(current) + 1
+        ws.update_cell(2, 2, next_num)
+        return f"RW-{next_num:04d}"
+    except Exception as e:
+        logger.error(f"Error getting order num: {e}")
+        now = datetime.now()
+        return "RW-" + now.strftime("%y%m%d-%H%M")
+
 def log_order(data, order_num, payment, deadline, manager):
     try:
         client = get_sheets_client()
         sh = client.open_by_key(SHEET_ID)
-        ws = sh.worksheet("Заказы")
-        items_str = "; ".join([
-            f"{item['type_label']} {i+1} — {item['brand']}: " +
-            ", ".join([s['name'] for s in item['svcs']])
-            for i, item in enumerate(data["items"])
-        ])
-        total = data["total_fixed"] + data["total_approx"]
-        prefix = "от " if data["has_approx"] else ""
-        row = [
-            datetime.now().strftime("%d.%m.%Y %H:%M"),
+        now_str = datetime.now().strftime("%d.%m.%Y %H:%M")
+
+        # Лист Заказы
+        ws_orders = sh.worksheet("Заказы")
+        ws_orders.append_row([
             order_num,
+            now_str,
             manager,
             data["client"],
             data["phone"],
-            items_str,
-            f"{prefix}{total} ₴",
             payment,
             deadline,
-            "Новый"
-        ]
-        ws.append_row(row)
+            "🆕 Новый"
+        ])
+
+        # Лист Изделия
+        ws_items = sh.worksheet("Изделия")
+        for i, item in enumerate(data["items"], 1):
+            item_num = f"{order_num}-{i}"
+            svcs_str = ", ".join([s["name"] for s in item["svcs"]])
+            total = sum(s["total"] for s in item["svcs"])
+            prefix = "от " if any(s["approx"] for s in item["svcs"]) else ""
+            ws_items.append_row([
+                order_num,
+                item_num,
+                item["type_label"],
+                item["brand"],
+                svcs_str,
+                f"{prefix}{total:,} ₴".replace(",", " "),
+                "🆕 Новый",
+                now_str,
+                "", "", ""
+            ])
     except Exception as e:
         logger.error(f"Error logging order: {e}")
 
-# Conversation states
+def get_active_orders():
+    try:
+        client = get_sheets_client()
+        sh = client.open_by_key(SHEET_ID)
+        ws = sh.worksheet("Заказы")
+        all_rows = ws.get_all_values()
+        active = [r for r in all_rows[1:] if len(r) > 7 and r[7] not in ["📦 Выдан"]]
+        return active
+    except Exception as e:
+        logger.error(f"Error getting active orders: {e}")
+        return []
+
+def get_active_items(order_num=None):
+    try:
+        client = get_sheets_client()
+        sh = client.open_by_key(SHEET_ID)
+        ws = sh.worksheet("Изделия")
+        all_rows = ws.get_all_values()
+        items = [r for r in all_rows[1:] if len(r) > 6 and r[6] not in ["📦 Выдан"]]
+        if order_num:
+            items = [r for r in items if r[0] == order_num]
+        return items
+    except Exception as e:
+        logger.error(f"Error getting active items: {e}")
+        return []
+
+def update_item_status(item_num, status):
+    try:
+        client = get_sheets_client()
+        sh = client.open_by_key(SHEET_ID)
+        ws = sh.worksheet("Изделия")
+        all_rows = ws.get_all_values()
+        now_str = datetime.now().strftime("%d.%m.%Y %H:%M")
+        for i, row in enumerate(all_rows):
+            if len(row) > 1 and row[1] == item_num:
+                ws.update_cell(i + 1, 7, status)
+                if status == "🔧 В работе":
+                    ws.update_cell(i + 1, 9, now_str)
+                elif status == "✅ Готов":
+                    ws.update_cell(i + 1, 10, now_str)
+                elif status == "📦 Выдан":
+                    ws.update_cell(i + 1, 11, now_str)
+                elif status == "⏳ Отложен":
+                    pass
+                break
+        # Проверяем все ли изделия заказа выданы
+        order_num = item_num.rsplit("-", 1)[0]
+        all_items = [r for r in all_rows[1:] if len(r) > 1 and r[0] == order_num]
+        if all_items and all(r[6] == "📦 Выдан" for r in all_items):
+            ws_orders = sh.worksheet("Заказы")
+            orders = ws_orders.get_all_values()
+            for i, row in enumerate(orders):
+                if len(row) > 0 and row[0] == order_num:
+                    ws_orders.update_cell(i + 1, 8, "📦 Выдан")
+                    break
+    except Exception as e:
+        logger.error(f"Error updating item status: {e}")
+
+def update_order_price(order_num, price_str):
+    try:
+        client = get_sheets_client()
+        sh = client.open_by_key(SHEET_ID)
+        ws = sh.worksheet("Заказы")
+        all_rows = ws.get_all_values()
+        for i, row in enumerate(all_rows):
+            if len(row) > 0 and row[0] == order_num:
+                # Добавляем подтверждённую сумму в статус
+                ws.update_cell(i + 1, 8, "✅ Подтверждён")
+                break
+    except Exception as e:
+        logger.error(f"Error updating order price: {e}")
+
+
+# ─── Состояния диалога ────────────────────────────────────────────────────────
+
 (MANAGER, NAME, PHONE, ITEM_TYPE, BRAND, DEPT, SERVICE,
  MANUAL_SVC_NAME, MANUAL_SVC_PRICE, QTY, EXTRA200, NEXT,
- PAYMENT, PREPAY_AMOUNT, DEADLINE, CONFIRM_NUM, CONFIRM_PRICE) = range(17)
+ PAYMENT, PREPAY_AMOUNT, DEADLINE,
+ CONFIRM_ORDER, CONFIRM_PRICE,
+ ISSUED_ORDER, ISSUED_ITEM,
+ STATUS_ORDER, STATUS_ITEM, STATUS_CHOOSE) = range(22)
 
 BTN_BACK = "↩️ Назад"
-BTN_CANCEL = "❌ Отменить заказ"
+BTN_CANCEL = "❌ Отменить"
 BTN_MANUAL = "✏️ Ввести вручную"
+
+STATUSES = ["🔧 В работе", "✅ Готов", "⏳ Отложен", "📦 Выдан"]
 
 DEPTS = {
     "shoes": [
@@ -293,9 +399,10 @@ SERVICES = {
 }
 
 
+# ─── Вспомогательные функции ──────────────────────────────────────────────────
+
 def fmt(n):
     return f"{n:,}".replace(",", " ") + " ₴"
-
 
 def kb(buttons, cols=2, add_back=False, add_cancel=False):
     rows = []
@@ -310,7 +417,6 @@ def kb(buttons, cols=2, add_back=False, add_cancel=False):
         rows.append(extra)
     return ReplyKeyboardMarkup(rows, resize_keyboard=True, one_time_keyboard=True)
 
-
 def get_data(ctx):
     if "order" not in ctx.user_data:
         ctx.user_data["order"] = {
@@ -321,6 +427,23 @@ def get_data(ctx):
         }
     return ctx.user_data["order"]
 
+def commit_item(d):
+    cur = d["cur"]
+    if cur["svcs"]:
+        for svc in cur["svcs"]:
+            if svc["approx"]:
+                d["total_approx"] += svc["total"]
+            else:
+                d["total_fixed"] += svc["total"]
+        d["items"].append({
+            "type_label": cur["type_label"],
+            "brand": cur["brand"],
+            "svcs": list(cur["svcs"])
+        })
+    d["cur"] = {"type": None, "type_label": "", "brand": "", "svcs": []}
+
+
+# ─── /start — новый заказ ─────────────────────────────────────────────────────
 
 async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     ctx.user_data.clear()
@@ -332,50 +455,35 @@ async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     )
     return MANAGER
 
-
 async def get_manager(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     if text == BTN_CANCEL:
         return await cancel(update, ctx)
     d = get_data(ctx)
     d["manager"] = text
-    await update.message.reply_text(
-        "*Имя клиента?*",
-        parse_mode="Markdown",
-        reply_markup=kb([], add_back=True, add_cancel=True)
-    )
+    await update.message.reply_text("*Имя клиента?*", parse_mode="Markdown",
+        reply_markup=kb([], add_back=True, add_cancel=True))
     return NAME
-
 
 async def get_name(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     if text == BTN_BACK:
         partners = get_partners()
-        await update.message.reply_text(
-            "Кто принимает заказ?",
-            reply_markup=kb(partners, cols=2, add_cancel=True)
-        )
+        await update.message.reply_text("Кто принимает заказ?",
+            reply_markup=kb(partners, cols=2, add_cancel=True))
         return MANAGER
     if text == BTN_CANCEL:
         return await cancel(update, ctx)
-    d = get_data(ctx)
-    d["client"] = text
-    await update.message.reply_text(
-        "📞 *Номер телефона?*",
-        parse_mode="Markdown",
-        reply_markup=kb([], add_back=True, add_cancel=True)
-    )
+    get_data(ctx)["client"] = text
+    await update.message.reply_text("📞 *Номер телефона?*", parse_mode="Markdown",
+        reply_markup=kb([], add_back=True, add_cancel=True))
     return PHONE
-
 
 async def get_phone(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     if text == BTN_BACK:
-        await update.message.reply_text(
-            "*Имя клиента?*",
-            parse_mode="Markdown",
-            reply_markup=kb([], add_back=True, add_cancel=True)
-        )
+        await update.message.reply_text("*Имя клиента?*", parse_mode="Markdown",
+            reply_markup=kb([], add_back=True, add_cancel=True))
         return NAME
     if text == BTN_CANCEL:
         return await cancel(update, ctx)
@@ -383,22 +491,16 @@ async def get_phone(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     d["phone"] = text
     d["cur"] = {"type": None, "type_label": "", "brand": "", "svcs": []}
     is_first = len(d["items"]) == 0
-    msg = "Какое изделие принёс клиент?" if is_first else "Ещё одна вещь — какое изделие?"
-    await update.message.reply_text(
-        msg,
-        reply_markup=kb(["👟 Обувь", "👜 Сумка / Аксессуар"], cols=2, add_back=True, add_cancel=True)
-    )
+    msg = "Какое изделие принёс клиент?" if is_first else "+ Ещё одна вещь — какое изделие?"
+    await update.message.reply_text(msg,
+        reply_markup=kb(["👟 Обувь", "👜 Сумка / Аксессуар"], cols=2, add_back=True, add_cancel=True))
     return ITEM_TYPE
-
 
 async def get_item_type(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     if text == BTN_BACK:
-        await update.message.reply_text(
-            "📞 *Номер телефона?*",
-            parse_mode="Markdown",
-            reply_markup=kb([], add_back=True, add_cancel=True)
-        )
+        await update.message.reply_text("📞 *Номер телефона?*", parse_mode="Markdown",
+            reply_markup=kb([], add_back=True, add_cancel=True))
         return PHONE
     if text == BTN_CANCEL:
         return await cancel(update, ctx)
@@ -409,159 +511,113 @@ async def get_item_type(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     else:
         d["cur"]["type"] = "bags"
         d["cur"]["type_label"] = "Сумка"
-    await update.message.reply_text(
-        "🏷 Бренд и модель?\n_(или «без бренда»)_",
-        parse_mode="Markdown",
-        reply_markup=kb([], add_back=True, add_cancel=True)
-    )
+    await update.message.reply_text("🏷 Бренд и модель?\n_(или «без бренда»)_", parse_mode="Markdown",
+        reply_markup=kb([], add_back=True, add_cancel=True))
     return BRAND
-
 
 async def get_brand(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     if text == BTN_BACK:
         d = get_data(ctx)
         is_first = len(d["items"]) == 0
-        msg = "Какое изделие принёс клиент?" if is_first else "Ещё одна вещь — какое изделие?"
-        await update.message.reply_text(
-            msg,
-            reply_markup=kb(["👟 Обувь", "👜 Сумка / Аксессуар"], cols=2, add_back=True, add_cancel=True)
-        )
+        msg = "Какое изделие принёс клиент?" if is_first else "+ Ещё одна вещь — какое изделие?"
+        await update.message.reply_text(msg,
+            reply_markup=kb(["👟 Обувь", "👜 Сумка / Аксессуар"], cols=2, add_back=True, add_cancel=True))
         return ITEM_TYPE
     if text == BTN_CANCEL:
         return await cancel(update, ctx)
     d = get_data(ctx)
     d["cur"]["brand"] = text
-    item_type = d["cur"]["type"]
-    depts = DEPTS[item_type]
+    depts = DEPTS[d["cur"]["type"]]
     dept_buttons = [label for _, label in depts]
     await update.message.reply_text(
         f"*{d['cur']['type_label']} — {d['cur']['brand']}*\n\nКакой отдел?",
         parse_mode="Markdown",
-        reply_markup=kb(dept_buttons, cols=2, add_back=True, add_cancel=True)
-    )
+        reply_markup=kb(dept_buttons, cols=2, add_back=True, add_cancel=True))
     return DEPT
-
 
 async def get_dept(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     if text == BTN_BACK:
-        await update.message.reply_text(
-            "🏷 Бренд и модель?\n_(или «без бренда»)_",
-            parse_mode="Markdown",
-            reply_markup=kb([], add_back=True, add_cancel=True)
-        )
+        await update.message.reply_text("🏷 Бренд и модель?\n_(или «без бренда»)_", parse_mode="Markdown",
+            reply_markup=kb([], add_back=True, add_cancel=True))
         return BRAND
     if text == BTN_CANCEL:
         return await cancel(update, ctx)
     d = get_data(ctx)
-    item_type = d["cur"]["type"]
-    depts = DEPTS[item_type]
-    dept_id = None
-    for did, dlabel in depts:
-        if dlabel == text:
-            dept_id = did
-            break
+    depts = DEPTS[d["cur"]["type"]]
+    dept_id = next((did for did, dlabel in depts if dlabel == text), None)
     if not dept_id:
         dept_buttons = [label for _, label in depts]
-        await update.message.reply_text(
-            "Выберите отдел из списка.",
-            reply_markup=kb(dept_buttons, cols=2, add_back=True, add_cancel=True)
-        )
+        await update.message.reply_text("Выберите отдел из списка.",
+            reply_markup=kb(dept_buttons, cols=2, add_back=True, add_cancel=True))
         return DEPT
     ctx.user_data["dept_id"] = dept_id
     ctx.user_data["dept_label"] = text
-    svcs = SERVICES[item_type][dept_id]
-    svc_buttons = [f"{name} — {'от ' if approx else ''}{fmt(price)}" for name, unit, price, approx in svcs]
+    svcs = SERVICES[d["cur"]["type"]][dept_id]
+    svc_buttons = [f"{name} — {'от ' if a else ''}{fmt(p)}" for name, u, p, a in svcs]
     svc_buttons.append(BTN_MANUAL)
-    await update.message.reply_text(
-        f"*{text}*\n\nВыберите услугу:",
-        parse_mode="Markdown",
-        reply_markup=kb(svc_buttons, cols=1, add_back=True, add_cancel=True)
-    )
+    await update.message.reply_text(f"*{text}*\n\nВыберите услугу:", parse_mode="Markdown",
+        reply_markup=kb(svc_buttons, cols=1, add_back=True, add_cancel=True))
     return SERVICE
-
 
 async def get_service(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     if text == BTN_BACK:
         d = get_data(ctx)
-        item_type = d["cur"]["type"]
-        depts = DEPTS[item_type]
+        depts = DEPTS[d["cur"]["type"]]
         dept_buttons = [label for _, label in depts]
         await update.message.reply_text(
             f"*{d['cur']['type_label']} — {d['cur']['brand']}*\n\nКакой отдел?",
             parse_mode="Markdown",
-            reply_markup=kb(dept_buttons, cols=2, add_back=True, add_cancel=True)
-        )
+            reply_markup=kb(dept_buttons, cols=2, add_back=True, add_cancel=True))
         return DEPT
     if text == BTN_CANCEL:
         return await cancel(update, ctx)
     if text == BTN_MANUAL:
-        await update.message.reply_text(
-            "✏️ Введите название услуги:",
-            reply_markup=kb([], add_back=True, add_cancel=True)
-        )
+        await update.message.reply_text("✏️ Введите название услуги:",
+            reply_markup=kb([], add_back=True, add_cancel=True))
         return MANUAL_SVC_NAME
     d = get_data(ctx)
-    item_type = d["cur"]["type"]
     dept_id = ctx.user_data["dept_id"]
-    svcs = SERVICES[item_type][dept_id]
-    chosen = None
-    for name, unit, price, approx in svcs:
-        label = f"{name} — {'от ' if approx else ''}{fmt(price)}"
-        if label == text:
-            chosen = (name, unit, price, approx)
-            break
+    svcs = SERVICES[d["cur"]["type"]][dept_id]
+    chosen = next(((n, u, p, a) for n, u, p, a in svcs
+                   if f"{n} — {'от ' if a else ''}{fmt(p)}" == text), None)
     if not chosen:
-        svc_buttons = [f"{name} — {'от ' if approx else ''}{fmt(price)}" for name, unit, price, approx in svcs]
+        svc_buttons = [f"{n} — {'от ' if a else ''}{fmt(p)}" for n, u, p, a in svcs]
         svc_buttons.append(BTN_MANUAL)
-        await update.message.reply_text(
-            "Выберите услугу из списка.",
-            reply_markup=kb(svc_buttons, cols=1, add_back=True, add_cancel=True)
-        )
+        await update.message.reply_text("Выберите услугу из списка.",
+            reply_markup=kb(svc_buttons, cols=1, add_back=True, add_cancel=True))
         return SERVICE
     ctx.user_data["chosen_svc"] = chosen
-    await update.message.reply_text(
-        f"Количество ({chosen[1]}):",
-        reply_markup=kb(["1", "2", "3", "Больше"], cols=4, add_back=True, add_cancel=True)
-    )
+    await update.message.reply_text(f"Количество ({chosen[1]}):",
+        reply_markup=kb(["1", "2", "3", "Больше"], cols=4, add_back=True, add_cancel=True))
     return QTY
-
 
 async def get_manual_svc_name(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     if text == BTN_BACK:
         d = get_data(ctx)
-        item_type = d["cur"]["type"]
         dept_id = ctx.user_data["dept_id"]
         dept_label = ctx.user_data["dept_label"]
-        svcs = SERVICES[item_type][dept_id]
-        svc_buttons = [f"{name} — {'от ' if approx else ''}{fmt(price)}" for name, unit, price, approx in svcs]
+        svcs = SERVICES[d["cur"]["type"]][dept_id]
+        svc_buttons = [f"{n} — {'от ' if a else ''}{fmt(p)}" for n, u, p, a in svcs]
         svc_buttons.append(BTN_MANUAL)
-        await update.message.reply_text(
-            f"*{dept_label}*\n\nВыберите услугу:",
-            parse_mode="Markdown",
-            reply_markup=kb(svc_buttons, cols=1, add_back=True, add_cancel=True)
-        )
+        await update.message.reply_text(f"*{dept_label}*\n\nВыберите услугу:", parse_mode="Markdown",
+            reply_markup=kb(svc_buttons, cols=1, add_back=True, add_cancel=True))
         return SERVICE
     if text == BTN_CANCEL:
         return await cancel(update, ctx)
     ctx.user_data["manual_svc_name"] = text
-    await update.message.reply_text(
-        "💰 Введите цену (только цифры):",
-        reply_markup=kb([], add_back=True, add_cancel=True)
-    )
+    await update.message.reply_text("💰 Введите цену (только цифры):",
+        reply_markup=kb([], add_back=True, add_cancel=True))
     return MANUAL_SVC_PRICE
-
 
 async def get_manual_svc_price(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     if text == BTN_BACK:
-        await update.message.reply_text(
-            "✏️ Введите название услуги:",
-            reply_markup=kb([], add_back=True, add_cancel=True)
-        )
+        await update.message.reply_text("✏️ Введите название услуги:",
+            reply_markup=kb([], add_back=True, add_cancel=True))
         return MANUAL_SVC_NAME
     if text == BTN_CANCEL:
         return await cancel(update, ctx)
@@ -570,30 +626,22 @@ async def get_manual_svc_price(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     except ValueError:
         await update.message.reply_text("Введите цену цифрами, например: 500")
         return MANUAL_SVC_PRICE
-    name = ctx.user_data["manual_svc_name"]
-    ctx.user_data["chosen_svc"] = (f"📝 {name}", "шт.", price, False)
-    await update.message.reply_text(
-        "Количество:",
-        reply_markup=kb(["1", "2", "3", "Больше"], cols=4, add_back=True, add_cancel=True)
-    )
+    ctx.user_data["chosen_svc"] = (f"📝 {ctx.user_data['manual_svc_name']}", "шт.", price, False)
+    await update.message.reply_text("Количество:",
+        reply_markup=kb(["1", "2", "3", "Больше"], cols=4, add_back=True, add_cancel=True))
     return QTY
-
 
 async def get_qty(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     if text == BTN_BACK:
         d = get_data(ctx)
-        item_type = d["cur"]["type"]
         dept_id = ctx.user_data["dept_id"]
         dept_label = ctx.user_data["dept_label"]
-        svcs = SERVICES[item_type][dept_id]
-        svc_buttons = [f"{name} — {'от ' if approx else ''}{fmt(price)}" for name, unit, price, approx in svcs]
+        svcs = SERVICES[d["cur"]["type"]][dept_id]
+        svc_buttons = [f"{n} — {'от ' if a else ''}{fmt(p)}" for n, u, p, a in svcs]
         svc_buttons.append(BTN_MANUAL)
-        await update.message.reply_text(
-            f"*{dept_label}*\n\nВыберите услугу:",
-            parse_mode="Markdown",
-            reply_markup=kb(svc_buttons, cols=1, add_back=True, add_cancel=True)
-        )
+        await update.message.reply_text(f"*{dept_label}*\n\nВыберите услугу:", parse_mode="Markdown",
+            reply_markup=kb(svc_buttons, cols=1, add_back=True, add_cancel=True))
         return SERVICE
     if text == BTN_CANCEL:
         return await cancel(update, ctx)
@@ -613,27 +661,20 @@ async def get_qty(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "Дополнительный цвет или материал?\n_(замша + кожа, лак и т.д.)_",
             parse_mode="Markdown",
-            reply_markup=kb(["✅ Да — +200 ₴", "❌ Нет"], cols=2, add_back=True, add_cancel=True)
-        )
+            reply_markup=kb(["✅ Да — +200 ₴", "❌ Нет"], cols=2, add_back=True, add_cancel=True))
         return EXTRA200
-    else:
-        return await save_service(update, ctx, extra200=False)
-
+    return await save_service(update, ctx, extra200=False)
 
 async def get_extra200(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     if text == BTN_BACK:
         chosen = ctx.user_data["chosen_svc"]
-        await update.message.reply_text(
-            f"Количество ({chosen[1]}):",
-            reply_markup=kb(["1", "2", "3", "Больше"], cols=4, add_back=True, add_cancel=True)
-        )
+        await update.message.reply_text(f"Количество ({chosen[1]}):",
+            reply_markup=kb(["1", "2", "3", "Больше"], cols=4, add_back=True, add_cancel=True))
         return QTY
     if text == BTN_CANCEL:
         return await cancel(update, ctx)
-    extra200 = "Да" in text
-    return await save_service(update, ctx, extra200=extra200)
-
+    return await save_service(update, ctx, extra200="Да" in text)
 
 async def save_service(update, ctx, extra200):
     d = get_data(ctx)
@@ -648,10 +689,8 @@ async def save_service(update, ctx, extra200):
     extra_str = " + 200 ₴ (доп. материал)" if extra200 else ""
     await update.message.reply_text(
         f"✓ Добавлено: {svc['name']}\n{price_str}{extra_str}",
-        reply_markup=kb(["➕ Ещё одна услуга", "➕ Ещё одна вещь", "✅ Завершить заказ"], cols=1, add_cancel=True)
-    )
+        reply_markup=kb(["➕ Ещё одна услуга", "➕ Ещё одна вещь", "✅ Завершить заказ"], cols=1, add_cancel=True))
     return NEXT
-
 
 async def get_next(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     d = get_data(ctx)
@@ -659,134 +698,87 @@ async def get_next(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if text == BTN_CANCEL:
         return await cancel(update, ctx)
     if "услуга" in text.lower():
-        item_type = d["cur"]["type"]
-        depts = DEPTS[item_type]
+        depts = DEPTS[d["cur"]["type"]]
         dept_buttons = [label for _, label in depts]
-        await update.message.reply_text(
-            "Какой отдел?",
-            reply_markup=kb(dept_buttons, cols=2, add_back=True, add_cancel=True)
-        )
+        await update.message.reply_text("Какой отдел?",
+            reply_markup=kb(dept_buttons, cols=2, add_back=True, add_cancel=True))
         return DEPT
     elif "вещь" in text.lower():
         commit_item(d)
-        await update.message.reply_text(
-            "Какое изделие?",
-            reply_markup=kb(["👟 Обувь", "👜 Сумка / Аксессуар"], cols=2, add_back=True, add_cancel=True)
-        )
+        await update.message.reply_text("Какое изделие?",
+            reply_markup=kb(["👟 Обувь", "👜 Сумка / Аксессуар"], cols=2, add_back=True, add_cancel=True))
         return ITEM_TYPE
     elif "завершить" in text.lower():
         commit_item(d)
-        await update.message.reply_text(
-            "💳 Тип оплаты?",
-            reply_markup=kb(["💳 Предоплата", "📦 Послеоплата"], cols=2, add_cancel=True)
-        )
+        await update.message.reply_text("💳 Тип оплаты?",
+            reply_markup=kb(["💳 Предоплата", "📦 Послеоплата"], cols=2, add_cancel=True))
         return PAYMENT
     else:
-        await update.message.reply_text(
-            "Выберите действие:",
-            reply_markup=kb(["➕ Ещё одна услуга", "➕ Ещё одна вещь", "✅ Завершить заказ"], cols=1, add_cancel=True)
-        )
+        await update.message.reply_text("Выберите действие:",
+            reply_markup=kb(["➕ Ещё одна услуга", "➕ Ещё одна вещь", "✅ Завершить заказ"], cols=1, add_cancel=True))
         return NEXT
-
 
 async def get_payment(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     if text == BTN_CANCEL:
         return await cancel(update, ctx)
-    if text == BTN_BACK:
-        await update.message.reply_text(
-            "Выберите действие:",
-            reply_markup=kb(["➕ Ещё одна услуга", "➕ Ещё одна вещь", "✅ Завершить заказ"], cols=1, add_cancel=True)
-        )
-        return NEXT
     ctx.user_data["payment_type"] = text
     if "Предоплата" in text:
-        await update.message.reply_text(
-            "💰 Введите сумму предоплаты (только цифры):",
-            reply_markup=kb([], add_back=True, add_cancel=True)
-        )
+        await update.message.reply_text("💰 Введите сумму предоплаты (только цифры):",
+            reply_markup=kb([], add_back=True, add_cancel=True))
         return PREPAY_AMOUNT
-    else:
-        ctx.user_data["payment"] = text
-        await update.message.reply_text(
-            "📅 Срок выполнения?",
-            reply_markup=kb(["⚡ Срочно", "🕐 Без срока", "📅 Указать дату"], cols=2, add_back=True, add_cancel=True)
-        )
-        return DEADLINE
-
+    ctx.user_data["payment"] = text
+    await update.message.reply_text("📅 Срок выполнения?",
+        reply_markup=kb(["⚡ Срочно", "🕐 Без срока", "📅 Указать дату"], cols=2, add_back=True, add_cancel=True))
+    return DEADLINE
 
 async def get_prepay_amount(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     if text == BTN_BACK:
-        await update.message.reply_text(
-            "💳 Тип оплаты?",
-            reply_markup=kb(["💳 Предоплата", "📦 Послеоплата"], cols=2, add_cancel=True)
-        )
+        await update.message.reply_text("💳 Тип оплаты?",
+            reply_markup=kb(["💳 Предоплата", "📦 Послеоплата"], cols=2, add_cancel=True))
         return PAYMENT
     if text == BTN_CANCEL:
         return await cancel(update, ctx)
     try:
         amount = int(text.replace(" ", "").replace("₴", ""))
-        ctx.user_data["payment"] = f"Предоплата: {amount:,} ₴".replace(",", " ")
+        ctx.user_data["payment"] = f"Предоплата: {fmt(amount)}"
     except ValueError:
         await update.message.reply_text("Введите сумму цифрами, например: 500")
         return PREPAY_AMOUNT
-    await update.message.reply_text(
-        "📅 Срок выполнения?",
-        reply_markup=kb(["⚡ Срочно", "🕐 Без срока", "📅 Указать дату"], cols=2, add_back=True, add_cancel=True)
-    )
+    await update.message.reply_text("📅 Срок выполнения?",
+        reply_markup=kb(["⚡ Срочно", "🕐 Без срока", "📅 Указать дату"], cols=2, add_back=True, add_cancel=True))
     return DEADLINE
-
 
 async def get_deadline(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     if text == BTN_BACK:
-        await update.message.reply_text(
-            "💳 Тип оплаты?",
-            reply_markup=kb(["💳 Предоплата", "📦 Послеоплата"], cols=2, add_cancel=True)
-        )
+        await update.message.reply_text("💳 Тип оплаты?",
+            reply_markup=kb(["💳 Предоплата", "📦 Послеоплата"], cols=2, add_cancel=True))
         return PAYMENT
     if text == BTN_CANCEL:
         return await cancel(update, ctx)
     if "Указать дату" in text:
-        await update.message.reply_text(
-            "Введите дату (например: 10.06 или пятница):",
-            reply_markup=kb([], add_back=True, add_cancel=True)
-        )
+        await update.message.reply_text("Введите дату (например: 10.06 или пятница):",
+            reply_markup=kb([], add_back=True, add_cancel=True))
         return DEADLINE
     ctx.user_data["deadline"] = text
     await finish_order(update, ctx)
     return ConversationHandler.END
 
-
-def commit_item(d):
-    cur = d["cur"]
-    if cur["svcs"]:
-        for svc in cur["svcs"]:
-            if svc["approx"]:
-                d["total_approx"] += svc["total"]
-            else:
-                d["total_fixed"] += svc["total"]
-        d["items"].append({
-            "type_label": cur["type_label"],
-            "brand": cur["brand"],
-            "svcs": list(cur["svcs"])
-        })
-    d["cur"] = {"type": None, "type_label": "", "brand": "", "svcs": []}
-
-
 async def finish_order(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     d = get_data(ctx)
     total = d["total_fixed"] + d["total_approx"]
     now = datetime.now()
-    order_num = "RW-" + now.strftime("%y%m%d-%H%M")
+    order_num = get_next_order_num()
     now_str = now.strftime("%d.%m.%Y | %H:%M")
     payment = ctx.user_data.get("payment", "—")
     deadline = ctx.user_data.get("deadline", "Без срока")
+    prefix = "от " if d["has_approx"] else ""
 
     lines = [
         "📋 *REWISE STUDIO — Новый заказ*", "",
-        f"🔖 Заказ: {order_num}",
+        f"🔖 *{order_num}*",
         f"👤 {d['client']}",
         f"📞 {d['phone']}",
         f"👨‍💼 Принял: {d['manager']}",
@@ -794,7 +786,8 @@ async def finish_order(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     ]
     for i, item in enumerate(d["items"], 1):
         icon = "👟" if "Обув" in item["type_label"] else "👜"
-        lines.append(f"{icon} *{item['type_label']} {i} — {item['brand']}*")
+        item_num = f"{order_num}-{i}"
+        lines.append(f"{icon} *{item_num} — {item['type_label']} — {item['brand']}*")
         for svc in item["svcs"]:
             price_str = f"{'от ' if svc['approx'] else ''}{fmt(svc['total'])}"
             extra = " +200 ₴" if svc.get("extra200") else ""
@@ -802,157 +795,276 @@ async def finish_order(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             lines.append(f"  • {svc['name']} — {price_str}{extra}{warn}")
         lines.append("")
 
-    prefix = "от " if d["has_approx"] else ""
     lines.append(f"💰 *Итого: {prefix}{fmt(total)}*")
     if d["has_approx"]:
         lines.append("⚠️ _Есть позиции для уточнения после осмотра_")
-
     lines.append(f"💳 Оплата: {payment}")
-
     if "Срочно" in deadline:
         lines.append("⚡ *СРОЧНО*")
-    elif deadline != "Без срока" and deadline != "🕐 Без срока":
+    elif deadline not in ("Без срока", "🕐 Без срока"):
         lines.append(f"📅 Срок: {deadline}")
-
     lines.append("")
     lines.append("_Окончательная стоимость согласовывается после осмотра изделия_")
-    lines.append("")
-    lines.append("Rewise Studio")
-
-    card_text = "\n".join(lines)
+    lines.append("\nRewise Studio")
 
     await update.message.reply_text(
-        f"✅ Заказ {order_num} сформирован!\n\n💰 {prefix}{fmt(total)}",
-        reply_markup=ReplyKeyboardRemove()
-    )
-
-    msg = await ctx.bot.send_message(
-        chat_id=CHANNEL_ID,
-        text=card_text,
-        parse_mode="Markdown"
-    )
-    ctx.user_data["last_msg_id"] = msg.message_id
-
+        f"✅ Заказ *{order_num}* сформирован!\n\n💰 {prefix}{fmt(total)}",
+        parse_mode="Markdown",
+        reply_markup=ReplyKeyboardRemove())
+    await ctx.bot.send_message(chat_id=CHANNEL_ID, text="\n".join(lines), parse_mode="Markdown")
     log_order(d, order_num, payment, deadline, d["manager"])
-
     await update.message.reply_text(
         "Карточка отправлена в канал ✓\n\nДля нового заказа нажми /start",
-        reply_markup=ReplyKeyboardRemove()
-    )
+        reply_markup=ReplyKeyboardRemove())
 
+
+# ─── /confirm — подтверждение финальной цены ─────────────────────────────────
 
 async def confirm_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    try:
-        client = get_sheets_client()
-        sh = client.open_by_key(SHEET_ID)
-        ws = sh.worksheet("Заказы")
-        all_rows = ws.get_all_values()
-        data_rows = [r for r in all_rows[1:] if len(r) > 1 and r[1]]
-        last_orders = list(reversed(data_rows[-5:])) if data_rows else []
-        if last_orders:
-            buttons = []
-            for row in last_orders:
-                order_num = row[1] if len(row) > 1 else "—"
-                client_name = row[3] if len(row) > 3 else "—"
-                total = row[6] if len(row) > 6 else "—"
-                buttons.append(f"{order_num} | {client_name} | {total}")
-            buttons.append("✏️ Ввести номер вручную")
-            await update.message.reply_text(
-                "Выберите заказ для подтверждения:",
-                reply_markup=kb(buttons, cols=1, add_cancel=True)
-            )
-        else:
-            await update.message.reply_text(
-                "Введите номер заказа:\n_(например: RW-260604-1142)_",
-                parse_mode="Markdown",
-                reply_markup=kb([], add_cancel=True)
-            )
-    except Exception as e:
-        logger.error(f"Error loading orders for confirm: {e}")
-        await update.message.reply_text(
-            "Введите номер заказа:\n_(например: RW-260604-1142)_",
-            parse_mode="Markdown",
-            reply_markup=kb([], add_cancel=True)
-        )
-    return CONFIRM_NUM
+    orders = get_active_orders()
+    if orders:
+        buttons = []
+        for row in reversed(orders[-10:]):
+            order_num = row[0] if len(row) > 0 else "—"
+            client_name = row[3] if len(row) > 3 else "—"
+            buttons.append(f"{order_num} | {client_name}")
+        buttons.append(BTN_MANUAL)
+        await update.message.reply_text("Выберите заказ:",
+            reply_markup=kb(buttons, cols=1, add_cancel=True))
+    else:
+        await update.message.reply_text("Введите номер заказа:",
+            reply_markup=kb([], add_cancel=True))
+    return CONFIRM_ORDER
 
-
-async def confirm_num(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+async def confirm_order(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     if text == BTN_CANCEL:
         return await cancel(update, ctx)
-    if text == "✏️ Ввести номер вручную":
-        await update.message.reply_text(
-            "Введите номер заказа:\n_(например: RW-260604-1142)_",
-            parse_mode="Markdown",
-            reply_markup=kb([], add_cancel=True)
-        )
-        return CONFIRM_NUM
-    if "|" in text:
-        order_num = text.split("|")[0].strip()
-    else:
-        order_num = text
+    if text == BTN_MANUAL:
+        await update.message.reply_text("Введите номер заказа (например: RW-0001):",
+            reply_markup=kb([], add_cancel=True))
+        return CONFIRM_ORDER
+    order_num = text.split("|")[0].strip() if "|" in text else text
     ctx.user_data["confirm_order_num"] = order_num
     await update.message.reply_text(
         f"Заказ: *{order_num}*\n\n💰 Введите финальную сумму (только цифры):",
         parse_mode="Markdown",
-        reply_markup=kb([], add_cancel=True)
-    )
+        reply_markup=kb([], add_cancel=True))
     return CONFIRM_PRICE
-
 
 async def confirm_price(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
+    if text == BTN_CANCEL:
+        return await cancel(update, ctx)
     try:
         price = int(text.replace(" ", "").replace("₴", ""))
     except ValueError:
         await update.message.reply_text("Введите сумму цифрами, например: 2500")
         return CONFIRM_PRICE
-
     order_num = ctx.user_data.get("confirm_order_num", "—")
     now_str = datetime.now().strftime("%d.%m.%Y | %H:%M")
-
     card_text = (
         f"✅ *REWISE STUDIO — Заказ подтверждён*\n\n"
-        f"🔖 Заказ: {order_num}\n"
+        f"🔖 *{order_num}*\n"
         f"💰 *Итого: {fmt(price)} — ФИНАЛ*\n"
         f"📅 {now_str}\n\n"
         f"Rewise Studio"
     )
-
-    await ctx.bot.send_message(
-        chat_id=CHANNEL_ID,
-        text=card_text,
-        parse_mode="Markdown"
-    )
-
-    try:
-        client = get_sheets_client()
-        sh = client.open_by_key(SHEET_ID)
-        ws = sh.worksheet("Заказы")
-        all_rows = ws.get_all_values()
-        for i, row in enumerate(all_rows):
-            if len(row) > 1 and row[1] == order_num:
-                ws.update_cell(i + 1, 7, fmt(price))
-                ws.update_cell(i + 1, 10, "Подтверждён")
-                break
-    except Exception as e:
-        logger.error(f"Error updating sheet: {e}")
-
+    await ctx.bot.send_message(chat_id=CHANNEL_ID, text=card_text, parse_mode="Markdown")
+    update_order_price(order_num, fmt(price))
     await update.message.reply_text(
         f"✅ Заказ {order_num} подтверждён — {fmt(price)}\nКарточка отправлена в канал.",
-        reply_markup=ReplyKeyboardRemove()
-    )
+        reply_markup=ReplyKeyboardRemove())
     return ConversationHandler.END
 
+
+# ─── /status — смена статуса изделия ─────────────────────────────────────────
+
+async def status_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    orders = get_active_orders()
+    if orders:
+        buttons = [f"{r[0]} | {r[3]}" for r in reversed(orders[-10:])]
+        buttons.append(BTN_MANUAL)
+        await update.message.reply_text("Выберите заказ:",
+            reply_markup=kb(buttons, cols=1, add_cancel=True))
+    else:
+        await update.message.reply_text("Введите номер заказа:",
+            reply_markup=kb([], add_cancel=True))
+    return STATUS_ORDER
+
+async def status_order(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text.strip()
+    if text == BTN_CANCEL:
+        return await cancel(update, ctx)
+    if text == BTN_MANUAL:
+        await update.message.reply_text("Введите номер заказа:",
+            reply_markup=kb([], add_cancel=True))
+        return STATUS_ORDER
+    order_num = text.split("|")[0].strip() if "|" in text else text
+    ctx.user_data["status_order_num"] = order_num
+    items = get_active_items(order_num)
+    if items:
+        buttons = [f"{r[1]} — {r[2]} {r[3]} ({r[6]})" for r in items]
+        await update.message.reply_text("Выберите изделие:",
+            reply_markup=kb(buttons, cols=1, add_back=True, add_cancel=True))
+    else:
+        await update.message.reply_text("Активных изделий не найдено.",
+            reply_markup=ReplyKeyboardRemove())
+        return ConversationHandler.END
+    return STATUS_ITEM
+
+async def status_item(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text.strip()
+    if text == BTN_BACK:
+        orders = get_active_orders()
+        buttons = [f"{r[0]} | {r[3]}" for r in reversed(orders[-10:])] if orders else []
+        buttons.append(BTN_MANUAL)
+        await update.message.reply_text("Выберите заказ:",
+            reply_markup=kb(buttons, cols=1, add_cancel=True))
+        return STATUS_ORDER
+    if text == BTN_CANCEL:
+        return await cancel(update, ctx)
+    item_num = text.split("—")[0].strip() if "—" in text else text
+    ctx.user_data["status_item_num"] = item_num
+    await update.message.reply_text(f"Изделие: *{item_num}*\n\nНовый статус?",
+        parse_mode="Markdown",
+        reply_markup=kb(STATUSES, cols=2, add_back=True, add_cancel=True))
+    return STATUS_CHOOSE
+
+async def status_choose(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text.strip()
+    if text == BTN_BACK:
+        order_num = ctx.user_data.get("status_order_num", "")
+        items = get_active_items(order_num)
+        buttons = [f"{r[1]} — {r[2]} {r[3]} ({r[6]})" for r in items] if items else []
+        await update.message.reply_text("Выберите изделие:",
+            reply_markup=kb(buttons, cols=1, add_back=True, add_cancel=True))
+        return STATUS_ITEM
+    if text == BTN_CANCEL:
+        return await cancel(update, ctx)
+    if text not in STATUSES:
+        await update.message.reply_text("Выберите статус из списка.",
+            reply_markup=kb(STATUSES, cols=2, add_cancel=True))
+        return STATUS_CHOOSE
+    item_num = ctx.user_data.get("status_item_num", "—")
+    order_num = ctx.user_data.get("status_order_num", "—")
+    update_item_status(item_num, text)
+    now_str = datetime.now().strftime("%d.%m.%Y | %H:%M")
+    card_text = (
+        f"🔄 *Статус изделия обновлён*\n\n"
+        f"🔖 Заказ: {order_num}\n"
+        f"📦 Изделие: {item_num}\n"
+        f"📌 Статус: {text}\n"
+        f"📅 {now_str}\n\n"
+        f"Rewise Studio"
+    )
+    await ctx.bot.send_message(chat_id=CHANNEL_ID, text=card_text, parse_mode="Markdown")
+    await update.message.reply_text(
+        f"✅ Статус изделия {item_num} обновлён: {text}",
+        reply_markup=ReplyKeyboardRemove())
+    return ConversationHandler.END
+
+
+# ─── /issued — выдача изделия ────────────────────────────────────────────────
+
+async def issued_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    orders = get_active_orders()
+    if orders:
+        buttons = [f"{r[0]} | {r[3]}" for r in reversed(orders[-10:])]
+        buttons.append(BTN_MANUAL)
+        await update.message.reply_text("Выберите заказ для выдачи:",
+            reply_markup=kb(buttons, cols=1, add_cancel=True))
+    else:
+        await update.message.reply_text("Введите номер заказа:",
+            reply_markup=kb([], add_cancel=True))
+    return ISSUED_ORDER
+
+async def issued_order(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text.strip()
+    if text == BTN_CANCEL:
+        return await cancel(update, ctx)
+    if text == BTN_MANUAL:
+        await update.message.reply_text("Введите номер заказа:",
+            reply_markup=kb([], add_cancel=True))
+        return ISSUED_ORDER
+    order_num = text.split("|")[0].strip() if "|" in text else text
+    ctx.user_data["issued_order_num"] = order_num
+    items = get_active_items(order_num)
+    if items:
+        buttons = [f"{r[1]} — {r[2]} {r[3]}" for r in items]
+        buttons.append("📦 Выдать все")
+        await update.message.reply_text("Какое изделие выдаём?",
+            reply_markup=kb(buttons, cols=1, add_back=True, add_cancel=True))
+    else:
+        await update.message.reply_text("Активных изделий не найдено.",
+            reply_markup=ReplyKeyboardRemove())
+        return ConversationHandler.END
+    return ISSUED_ITEM
+
+async def issued_item(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text.strip()
+    if text == BTN_BACK:
+        orders = get_active_orders()
+        buttons = [f"{r[0]} | {r[3]}" for r in reversed(orders[-10:])] if orders else []
+        buttons.append(BTN_MANUAL)
+        await update.message.reply_text("Выберите заказ для выдачи:",
+            reply_markup=kb(buttons, cols=1, add_cancel=True))
+        return ISSUED_ORDER
+    if text == BTN_CANCEL:
+        return await cancel(update, ctx)
+    order_num = ctx.user_data.get("issued_order_num", "—")
+    now_str = datetime.now().strftime("%d.%m.%Y | %H:%M")
+
+    if text == "📦 Выдать все":
+        items = get_active_items(order_num)
+        issued_nums = []
+        for row in items:
+            item_num = row[1]
+            update_item_status(item_num, "📦 Выдан")
+            issued_nums.append(item_num)
+        card_text = (
+            f"📦 *REWISE STUDIO — Заказ выдан*\n\n"
+            f"🔖 Заказ: {order_num}\n"
+            f"✅ Выдано: {', '.join(issued_nums)}\n"
+            f"📅 {now_str}\n\n"
+            f"Rewise Studio"
+        )
+        await ctx.bot.send_message(chat_id=CHANNEL_ID, text=card_text, parse_mode="Markdown")
+        await update.message.reply_text(
+            f"✅ Заказ {order_num} выдан полностью.",
+            reply_markup=ReplyKeyboardRemove())
+    else:
+        item_num = text.split("—")[0].strip() if "—" in text else text
+        update_item_status(item_num, "📦 Выдан")
+        remaining = get_active_items(order_num)
+        remain_str = ""
+        if remaining:
+            remain_nums = [r[1] for r in remaining]
+            remain_str = f"\n🔧 Остаток: {', '.join(remain_nums)}"
+        card_text = (
+            f"📦 *REWISE STUDIO — Частичная выдача*\n\n"
+            f"🔖 Заказ: {order_num}\n"
+            f"✅ Выдано: {item_num}"
+            f"{remain_str}\n"
+            f"📅 {now_str}\n\n"
+            f"Rewise Studio"
+        )
+        await ctx.bot.send_message(chat_id=CHANNEL_ID, text=card_text, parse_mode="Markdown")
+        await update.message.reply_text(
+            f"✅ Изделие {item_num} выдано.",
+            reply_markup=ReplyKeyboardRemove())
+    return ConversationHandler.END
+
+
+# ─── cancel ───────────────────────────────────────────────────────────────────
 
 async def cancel(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "Заказ отменён. Для нового нажми /start",
-        reply_markup=ReplyKeyboardRemove()
-    )
+    await update.message.reply_text("Отменено. Для нового заказа нажми /start",
+        reply_markup=ReplyKeyboardRemove())
     return ConversationHandler.END
 
+
+# ─── main ─────────────────────────────────────────────────────────────────────
 
 def main():
     app = Application.builder().token(TOKEN).build()
@@ -982,14 +1094,35 @@ def main():
     confirm_conv = ConversationHandler(
         entry_points=[CommandHandler("confirm", confirm_start)],
         states={
-            CONFIRM_NUM:   [MessageHandler(filters.TEXT & ~filters.COMMAND, confirm_num)],
+            CONFIRM_ORDER: [MessageHandler(filters.TEXT & ~filters.COMMAND, confirm_order)],
             CONFIRM_PRICE: [MessageHandler(filters.TEXT & ~filters.COMMAND, confirm_price)],
+        },
+        fallbacks=[CommandHandler("cancel", cancel)],
+    )
+
+    status_conv = ConversationHandler(
+        entry_points=[CommandHandler("status", status_start)],
+        states={
+            STATUS_ORDER:  [MessageHandler(filters.TEXT & ~filters.COMMAND, status_order)],
+            STATUS_ITEM:   [MessageHandler(filters.TEXT & ~filters.COMMAND, status_item)],
+            STATUS_CHOOSE: [MessageHandler(filters.TEXT & ~filters.COMMAND, status_choose)],
+        },
+        fallbacks=[CommandHandler("cancel", cancel)],
+    )
+
+    issued_conv = ConversationHandler(
+        entry_points=[CommandHandler("issued", issued_start)],
+        states={
+            ISSUED_ORDER: [MessageHandler(filters.TEXT & ~filters.COMMAND, issued_order)],
+            ISSUED_ITEM:  [MessageHandler(filters.TEXT & ~filters.COMMAND, issued_item)],
         },
         fallbacks=[CommandHandler("cancel", cancel)],
     )
 
     app.add_handler(order_conv)
     app.add_handler(confirm_conv)
+    app.add_handler(status_conv)
+    app.add_handler(issued_conv)
     print("Бот запущен...")
     app.run_polling()
 
