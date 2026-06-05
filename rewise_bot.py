@@ -67,7 +67,7 @@ def log_order(data, order_num, payment, deadline, manager):
 # Conversation states
 (MANAGER, NAME, PHONE, ITEM_TYPE, BRAND, DEPT, SERVICE,
  MANUAL_SVC_NAME, MANUAL_SVC_PRICE, QTY, EXTRA200, NEXT,
- PAYMENT, DEADLINE, CONFIRM_NUM, CONFIRM_PRICE) = range(16)
+ PAYMENT, PREPAY_AMOUNT, DEADLINE, CONFIRM_NUM, CONFIRM_PRICE) = range(17)
 
 BTN_BACK = "↩️ Назад"
 BTN_CANCEL = "❌ Отменить заказ"
@@ -693,7 +693,44 @@ async def get_payment(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     if text == BTN_CANCEL:
         return await cancel(update, ctx)
-    ctx.user_data["payment"] = text
+    if text == BTN_BACK:
+        await update.message.reply_text(
+            "Выберите действие:",
+            reply_markup=kb(["➕ Ещё одна услуга", "➕ Ещё одна вещь", "✅ Завершить заказ"], cols=1, add_cancel=True)
+        )
+        return NEXT
+    ctx.user_data["payment_type"] = text
+    if "Предоплата" in text:
+        await update.message.reply_text(
+            "💰 Введите сумму предоплаты (только цифры):",
+            reply_markup=kb([], add_back=True, add_cancel=True)
+        )
+        return PREPAY_AMOUNT
+    else:
+        ctx.user_data["payment"] = text
+        await update.message.reply_text(
+            "📅 Срок выполнения?",
+            reply_markup=kb(["⚡ Срочно", "🕐 Без срока", "📅 Указать дату"], cols=2, add_back=True, add_cancel=True)
+        )
+        return DEADLINE
+
+
+async def get_prepay_amount(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text.strip()
+    if text == BTN_BACK:
+        await update.message.reply_text(
+            "💳 Тип оплаты?",
+            reply_markup=kb(["💳 Предоплата", "📦 Послеоплата"], cols=2, add_cancel=True)
+        )
+        return PAYMENT
+    if text == BTN_CANCEL:
+        return await cancel(update, ctx)
+    try:
+        amount = int(text.replace(" ", "").replace("₴", ""))
+        ctx.user_data["payment"] = f"Предоплата: {amount:,} ₴".replace(",", " ")
+    except ValueError:
+        await update.message.reply_text("Введите сумму цифрами, например: 500")
+        return PREPAY_AMOUNT
     await update.message.reply_text(
         "📅 Срок выполнения?",
         reply_markup=kb(["⚡ Срочно", "🕐 Без срока", "📅 Указать дату"], cols=2, add_back=True, add_cancel=True)
@@ -936,6 +973,7 @@ def main():
             EXTRA200:         [MessageHandler(filters.TEXT & ~filters.COMMAND, get_extra200)],
             NEXT:             [MessageHandler(filters.TEXT & ~filters.COMMAND, get_next)],
             PAYMENT:          [MessageHandler(filters.TEXT & ~filters.COMMAND, get_payment)],
+            PREPAY_AMOUNT:    [MessageHandler(filters.TEXT & ~filters.COMMAND, get_prepay_amount)],
             DEADLINE:         [MessageHandler(filters.TEXT & ~filters.COMMAND, get_deadline)],
         },
         fallbacks=[CommandHandler("cancel", cancel)],
