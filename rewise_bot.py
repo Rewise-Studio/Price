@@ -30,7 +30,7 @@ def get_partners():
     try:
         client = get_sheets_client()
         sh = client.open_by_key(SHEET_ID)
-        ws = sh.worksheet("Партнёры")
+        ws = sh.worksheet("Партнери")
         values = ws.col_values(1)
         return [v for v in values if v and v != "Имя"]
     except Exception as e:
@@ -41,7 +41,7 @@ def get_next_order_num():
     try:
         client = get_sheets_client()
         sh = client.open_by_key(SHEET_ID)
-        ws = sh.worksheet("Настройки")
+        ws = sh.worksheet("Налаштування")
         current = ws.cell(2, 2).value or 0
         next_num = int(current) + 1
         ws.update_cell(2, 2, next_num)
@@ -57,8 +57,8 @@ def log_order(data, order_num, payment, deadline, manager):
         sh = client.open_by_key(SHEET_ID)
         now_str = datetime.now().strftime("%d.%m.%Y %H:%M")
 
-        # Лист Заказы
-        ws_orders = sh.worksheet("Заказы")
+        # Лист Замовлення
+        ws_orders = sh.worksheet("Замовлення")
         ws_orders.append_row([
             order_num,
             now_str,
@@ -70,8 +70,8 @@ def log_order(data, order_num, payment, deadline, manager):
             "🆕 Новый"
         ])
 
-        # Лист Изделия
-        ws_items = sh.worksheet("Изделия")
+        # Лист Вироби
+        ws_items = sh.worksheet("Вироби")
         for i, item in enumerate(data["items"], 1):
             item_num = f"{order_num}-{i}"
             svcs_str = ", ".join([s["name"] for s in item["svcs"]])
@@ -95,7 +95,7 @@ def get_active_orders():
     try:
         client = get_sheets_client()
         sh = client.open_by_key(SHEET_ID)
-        ws = sh.worksheet("Заказы")
+        ws = sh.worksheet("Замовлення")
         all_rows = ws.get_all_values()
         active = [r for r in all_rows[1:] if len(r) > 7 and r[7] not in ["📦 Выдан"]]
         return active
@@ -107,7 +107,7 @@ def get_active_items(order_num=None):
     try:
         client = get_sheets_client()
         sh = client.open_by_key(SHEET_ID)
-        ws = sh.worksheet("Изделия")
+        ws = sh.worksheet("Вироби")
         all_rows = ws.get_all_values()
         items = [r for r in all_rows[1:] if len(r) > 6 and r[6] not in ["📦 Выдан"]]
         if order_num:
@@ -121,7 +121,7 @@ def update_item_status(item_num, status):
     try:
         client = get_sheets_client()
         sh = client.open_by_key(SHEET_ID)
-        ws = sh.worksheet("Изделия")
+        ws = sh.worksheet("Вироби")
         all_rows = ws.get_all_values()
         now_str = datetime.now().strftime("%d.%m.%Y %H:%M")
         for i, row in enumerate(all_rows):
@@ -140,7 +140,7 @@ def update_item_status(item_num, status):
         order_num = item_num.rsplit("-", 1)[0]
         all_items = [r for r in all_rows[1:] if len(r) > 1 and r[0] == order_num]
         if all_items and all(r[6] == "📦 Выдан" for r in all_items):
-            ws_orders = sh.worksheet("Заказы")
+            ws_orders = sh.worksheet("Замовлення")
             orders = ws_orders.get_all_values()
             for i, row in enumerate(orders):
                 if len(row) > 0 and row[0] == order_num:
@@ -153,7 +153,7 @@ def update_order_price(order_num, price_str):
     try:
         client = get_sheets_client()
         sh = client.open_by_key(SHEET_ID)
-        ws = sh.worksheet("Заказы")
+        ws = sh.worksheet("Замовлення")
         all_rows = ws.get_all_values()
         for i, row in enumerate(all_rows):
             if len(row) > 0 and row[0] == order_num:
@@ -461,7 +461,7 @@ async def get_manager(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return await cancel(update, ctx)
     d = get_data(ctx)
     d["manager"] = text
-    await update.message.reply_text("*Имя клиента?*", parse_mode="Markdown",
+    await update.message.reply_text("*Ім'я клієнта?*", parse_mode="Markdown",
         reply_markup=kb([], add_back=True, add_cancel=True))
     return NAME
 
@@ -482,7 +482,7 @@ async def get_name(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 async def get_phone(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     if text == BTN_BACK:
-        await update.message.reply_text("*Имя клиента?*", parse_mode="Markdown",
+        await update.message.reply_text("*Ім'я клієнта?*", parse_mode="Markdown",
             reply_markup=kb([], add_back=True, add_cancel=True))
         return NAME
     if text == BTN_CANCEL:
