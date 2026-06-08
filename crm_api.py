@@ -88,6 +88,53 @@ def create_order():
         response.headers["Access-Control-Allow-Origin"] = "*"
         return response, 500
 
+@app.route("/status", methods=["POST", "OPTIONS"])
+def update_status():
+    if request.method == "OPTIONS":
+        response = app.make_default_options_response()
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+    try:
+        data = request.get_json()
+        item_num = data.get("item_num", "")
+        status = data.get("status", "")
+        client = get_sheets_client()
+        sh = client.open_by_key(SHEET_ID)
+        ws = sh.worksheet("Вироби")
+        all_rows = ws.get_all_values()
+        now_str = datetime.now().strftime("%d.%m.%Y %H:%M")
+        for i, row in enumerate(all_rows):
+            if len(row) > 1 and row[1] == item_num:
+                ws.update_cell(i + 1, 7, status)
+                if status == "⚙️ В роботі":
+                    ws.update_cell(i + 1, 9, now_str)
+                elif status == "✅ Готово":
+                    ws.update_cell(i + 1, 10, now_str)
+                elif status == "📦 Виданий":
+                    ws.update_cell(i + 1, 11, now_str)
+                break
+        # Check if all items issued — update order status
+        order_num = item_num.rsplit("-", 1)[0]
+        all_items = [r for r in all_rows[1:] if len(r) > 1 and r[0] == order_num]
+        if all_items and all(r[6] == "📦 Виданий" for r in all_items if r[6]):
+            ws_orders = sh.worksheet("Замовлення")
+            orders = ws_orders.get_all_values()
+            for i, row in enumerate(orders):
+                if len(row) > 0 and row[0] == order_num:
+                    ws_orders.update_cell(i + 1, 8, "📦 Виданий")
+                    break
+        response = jsonify({"status": "ok"})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response
+    except Exception as e:
+        logger.error(f"Error updating status: {e}")
+        response = jsonify({"status": "error", "message": str(e)})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response, 500
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
