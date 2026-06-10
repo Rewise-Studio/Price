@@ -59,7 +59,8 @@ def create_order():
             data.get("phone", ""),
             data.get("payment", ""),
             data.get("deadline", ""),
-            "🆕 Новий"
+            "🆕 Новий",
+            data.get("note", "")
         ])
 
         # Вироби
@@ -130,6 +131,35 @@ def update_status():
         return response
     except Exception as e:
         logger.error(f"Error updating status: {e}")
+        response = jsonify({"status": "error", "message": str(e)})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response, 500
+
+
+@app.route("/note", methods=["POST", "OPTIONS"])
+def update_note():
+    if request.method == "OPTIONS":
+        response = app.make_default_options_response()
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+    try:
+        data = request.get_json()
+        order_num = data.get("order_num", "")
+        note = data.get("note", "")
+        client = get_sheets_client()
+        sh = client.open_by_key(SHEET_ID)
+        ws = sh.worksheet("Замовлення")
+        all_rows = ws.get_all_values()
+        for i, row in enumerate(all_rows):
+            if len(row) > 0 and row[0] == order_num:
+                ws.update_cell(i + 1, 9, note)
+                break
+        response = jsonify({"status": "ok"})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response
+    except Exception as e:
         response = jsonify({"status": "error", "message": str(e)})
         response.headers["Access-Control-Allow-Origin"] = "*"
         return response, 500
