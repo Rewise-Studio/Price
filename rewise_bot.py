@@ -566,12 +566,12 @@ async def get_item_type(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if text == BTN_CANCEL:
         return await cancel(update, ctx)
     d = get_data(ctx)
-    if "Обувь" in text:
+    if "Взуття" in text or "Обувь" in text:
         d["cur"]["type"] = "shoes"
-        d["cur"]["type_label"] = "Обувь"
+        d["cur"]["type_label"] = "Взуття"
     else:
         d["cur"]["type"] = "bags"
-        d["cur"]["type_label"] = "Сумка"
+        d["cur"]["type_label"] = "Сумка / Аксесуар"
     await update.message.reply_text("🏷 Бренд и модель?\n_(или «без бренда»)_", parse_mode="Markdown",
         reply_markup=kb([], add_back=True, add_cancel=True))
     return BRAND
