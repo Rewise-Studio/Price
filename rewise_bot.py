@@ -765,18 +765,19 @@ async def get_next(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     if text == BTN_CANCEL:
         return await cancel(update, ctx)
-    if "услуга" in text.lower():
-        depts = DEPTS[d["cur"]["type"]]
+    if "послуга" in text.lower() or "услуга" in text.lower():
+        _, dept_map = get_cached_services()
+        depts = list((dept_map or {}).get(d["cur"]["type"], {}).items())
         dept_buttons = [label for _, label in depts]
         await update.message.reply_text("Який відділ?",
             reply_markup=kb(dept_buttons, cols=2, add_back=True, add_cancel=True))
         return DEPT
-    elif "вещь" in text.lower():
+    elif "річ" in text.lower() or "вещь" in text.lower():
         commit_item(d)
         await update.message.reply_text("Який виріб?",
             reply_markup=kb(["👟 Взуття", "👜 Сумка / Аксесуар"], cols=2, add_back=True, add_cancel=True))
         return ITEM_TYPE
-    elif "завершить" in text.lower():
+    elif "завершити" in text.lower() or "завершить" in text.lower():
         commit_item(d)
         await update.message.reply_text("💳 Тип оплати?",
             reply_markup=kb(["💳 Передоплата", "📦 Післяоплата"], cols=2, add_cancel=True))
