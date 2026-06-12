@@ -589,7 +589,8 @@ async def get_brand(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return await cancel(update, ctx)
     d = get_data(ctx)
     d["cur"]["brand"] = text
-    depts = DEPTS[d["cur"]["type"]]
+    _, dept_map = get_cached_services()
+    depts = list((dept_map or {}).get(d["cur"]["type"], {}).items())
     dept_buttons = [label for _, label in depts]
     await update.message.reply_text(
         f"*{d['cur']['type_label']} — {d['cur']['brand']}*\n\nЯкий відділ?",
@@ -628,7 +629,8 @@ async def get_service(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     if text == BTN_BACK:
         d = get_data(ctx)
-        depts = DEPTS[d["cur"]["type"]]
+        _, dept_map = get_cached_services()
+        depts = list((dept_map or {}).get(d["cur"]["type"], {}).items())
         dept_buttons = [label for _, label in depts]
         await update.message.reply_text(
             f"*{d['cur']['type_label']} — {d['cur']['brand']}*\n\nЯкий відділ?",
