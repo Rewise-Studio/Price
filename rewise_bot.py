@@ -16,6 +16,17 @@ logger = logging.getLogger(__name__)
 TOKEN = os.environ.get("BOT_TOKEN", "")
 CHANNEL_ID = -5226279696
 SHEET_ID = os.environ.get("GOOGLE_SHEET_ID", "")
+_services_cache = None
+_depts_cache = None
+
+def get_cached_services():
+    global _services_cache, _depts_cache
+    if _services_cache is None:
+        _services_cache, _depts_cache = get_services_from_sheet()
+        if _services_cache is None:
+            _services_cache = SERVICES
+            _depts_cache = DEPTS_FALLBACK
+    return _services_cache, _depts_cache
 
 # ─── Google Sheets ───────────────────────────────────────────────────────────
 
@@ -202,6 +213,9 @@ DEPTS = {
         ("belt",     "Поясний ремінь"),
     ],
 }
+
+DEPTS_FALLBACK = {k: {did: dname for did, dname in v} for k, v in {cat: [(did, dlabel) for did, dlabel in deps] for cat, deps in DEPTS.items()}.items()}
+
 
 SERVICES = {
     'shoes': {
@@ -454,6 +468,12 @@ def commit_item(d):
 async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     ctx.user_data.clear()
     get_data(ctx)
+    # Reload services from sheet on each new order
+    global _services_cache, _depts_cache
+    _services_cache, _depts_cache = get_services_from_sheet()
+    if _services_cache is None:
+        _services_cache = SERVICES
+        _depts_cache = DEPTS_FALLBACK
     partners = get_partners()
     await update.message.reply_text(
         "👋 Rewise Studio\n\nХто приймає замовлення?",
@@ -551,7 +571,8 @@ async def get_dept(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if text == BTN_CANCEL:
         return await cancel(update, ctx)
     d = get_data(ctx)
-    depts = DEPTS[d["cur"]["type"]]
+    _, dept_map = get_cached_services()
+    depts = list((dept_map or {}).get(d["cur"]["type"], {}).items())
     dept_id = next((did for did, dlabel in depts if dlabel == text), None)
     if not dept_id:
         dept_buttons = [label for _, label in depts]
@@ -560,7 +581,8 @@ async def get_dept(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return DEPT
     ctx.user_data["dept_id"] = dept_id
     ctx.user_data["dept_label"] = text
-    svcs = SERVICES[d["cur"]["type"]][dept_id]
+    svc_map, _ = get_cached_services()
+    svcs = svc_map.get(d["cur"]["type"], {}).get(dept_id, [])
     svc_buttons = [f"{name} — {'от ' if a else ''}{fmt(p)}" for name, u, p, a in svcs]
     svc_buttons.append(BTN_MANUAL)
     await update.message.reply_text(f"*{text}*\n\nОберіть послугу:", parse_mode="Markdown",
@@ -586,7 +608,8 @@ async def get_service(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return MANUAL_SVC_NAME
     d = get_data(ctx)
     dept_id = ctx.user_data["dept_id"]
-    svcs = SERVICES[d["cur"]["type"]][dept_id]
+    svc_map, _ = get_cached_services()
+    svcs = svc_map.get(d["cur"]["type"], {}).get(dept_id, [])
     chosen = next(((n, u, p, a) for n, u, p, a in svcs
                    if f"{n} — {'от ' if a else ''}{fmt(p)}" == text), None)
     if not chosen:
@@ -606,7 +629,8 @@ async def get_manual_svc_name(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         d = get_data(ctx)
         dept_id = ctx.user_data["dept_id"]
         dept_label = ctx.user_data["dept_label"]
-        svcs = SERVICES[d["cur"]["type"]][dept_id]
+        svc_map, _ = get_cached_services()
+        svcs = svc_map.get(d["cur"]["type"], {}).get(dept_id, [])
         svc_buttons = [f"{n} — {'от ' if a else ''}{fmt(p)}" for n, u, p, a in svcs]
         svc_buttons.append(BTN_MANUAL)
         await update.message.reply_text(f"*{dept_label}*\n\nОберіть послугу:", parse_mode="Markdown",
@@ -643,7 +667,8 @@ async def get_qty(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         d = get_data(ctx)
         dept_id = ctx.user_data["dept_id"]
         dept_label = ctx.user_data["dept_label"]
-        svcs = SERVICES[d["cur"]["type"]][dept_id]
+        svc_map, _ = get_cached_services()
+        svcs = svc_map.get(d["cur"]["type"], {}).get(dept_id, [])
         svc_buttons = [f"{n} — {'от ' if a else ''}{fmt(p)}" for n, u, p, a in svcs]
         svc_buttons.append(BTN_MANUAL)
         await update.message.reply_text(f"*{dept_label}*\n\nОберіть послугу:", parse_mode="Markdown",
