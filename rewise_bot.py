@@ -48,6 +48,8 @@ def get_partners():
         logger.error(f"Error getting partners: {type(e).__name__}: {e}")
         return ["Сергей"]
 
+
+
 def get_next_order_num():
     try:
         client = get_sheets_client()
