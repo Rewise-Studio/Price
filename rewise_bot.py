@@ -1,4 +1,3 @@
-
 import os
 import json
 import logging
@@ -49,6 +48,39 @@ def get_partners():
         logger.error(f"Error getting partners: {type(e).__name__}: {e}")
         return ["Сергей"]
 
+
+
+def get_services_from_sheet():
+    try:
+        client = get_sheets_client()
+        sh = client.open_by_key(SHEET_ID)
+        ws = sh.worksheet("Прайс")
+        rows = ws.get_all_values()
+        services = {}
+        depts = {}
+        for row in rows[1:]:
+            if len(row) < 6 or not row[0]: continue
+            cat = row[0].strip()
+            dept_id = row[1].strip()
+            dept_name = row[2].strip()
+            name = row[3].strip()
+            unit = row[4].strip() if len(row) > 4 else ""
+            try:
+                price = int(str(row[5]).replace(" ","").replace("₴","")) if row[5] else 0
+            except:
+                price = 0
+            approx = str(row[6]).strip() == "1" if len(row) > 6 else False
+            if cat not in services:
+                services[cat] = {}
+                depts[cat] = {}
+            if dept_id not in services[cat]:
+                services[cat][dept_id] = []
+                depts[cat][dept_id] = dept_name
+            services[cat][dept_id].append((name, unit, price, approx))
+        return services, depts
+    except Exception as e:
+        logger.error(f"Error getting services: {e}")
+        return None, None
 
 
 def get_next_order_num():
