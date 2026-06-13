@@ -1,272 +1,1172 @@
 <!DOCTYPE html>
-<!-- saved from url=(0040)file:///C:/Users/user/Desktop/index.html -->
-<html lang="ru"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Rewise Studio — Поиск по прайсу</title>
+<title>Прайс-лист — Rewise Studio</title>
 <style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
-:root { --umbra: #6B4F3A; --linen: #F5F0EA; --graphite: #2C2C2C; --muted: #8a7f78; --border: #e0d9d3; --bg: #faf8f6; --card: #ffffff; --approx: #9a6c1a; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--graphite); min-height: 100vh; }
-header { background: var(--umbra); padding: 16px 20px 14px; position: sticky; top: 0; z-index: 100; }
-.header-top { display: flex; align-items: center; margin-bottom: 12px; }
-.brand { display: flex; align-items: center; gap: 10px; }
-.brand-mark { width: 34px; height: 34px; background: var(--linen); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: var(--umbra); letter-spacing: 0.5px; }
-.brand-name { color: var(--linen); font-size: 15px; font-weight: 500; }
-.brand-sub { color: rgba(245,240,234,0.55); font-size: 11px; margin-top: 1px; }
-.search-wrap { position: relative; }
-.search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; opacity: 0.45; pointer-events: none; }
-#search { width: 100%; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.18); border-radius: 10px; padding: 10px 12px 10px 38px; font-size: 15px; color: #fff; font-family: inherit; outline: none; -webkit-appearance: none; }
-#search::placeholder { color: rgba(255,255,255,0.45); }
-#search:focus { background: rgba(255,255,255,0.18); }
-.filters { background: var(--card); border-bottom: 1px solid var(--border); padding: 10px 16px; display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
-.filters::-webkit-scrollbar { display: none; }
-.fbtn { flex-shrink: 0; background: transparent; border: 1px solid var(--border); border-radius: 20px; padding: 6px 14px; font-size: 13px; color: var(--muted); cursor: pointer; font-family: inherit; white-space: nowrap; -webkit-tap-highlight-color: transparent; }
-.fbtn.active { background: var(--umbra); color: var(--linen); border-color: var(--umbra); }
-.meta-bar { padding: 10px 16px 6px; font-size: 12px; color: var(--muted); }
-.results { padding: 0 12px 80px; display: flex; flex-direction: column; gap: 6px; }
-.result-item { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-.result-left { flex: 1; min-width: 0; }
-.result-name { font-size: 14px; color: var(--graphite); line-height: 1.4; margin-bottom: 4px; }
-.result-name mark { background: #f0e8df; color: var(--umbra); border-radius: 3px; padding: 0 2px; font-style: normal; }
-.result-meta { font-size: 11px; color: var(--muted); }
-.result-right { text-align: right; flex-shrink: 0; }
-.result-price { font-size: 15px; font-weight: 600; color: var(--graphite); white-space: nowrap; }
-.result-price.approx { color: var(--approx); }
-.approx-badge { display: inline-block; font-size: 10px; background: #fef3dc; color: var(--approx); border-radius: 4px; padding: 1px 5px; margin-top: 3px; }
-.empty { text-align: center; padding: 48px 24px; color: var(--muted); }
-.empty-icon { font-size: 36px; margin-bottom: 12px; opacity: 0.4; }
-.empty h3 { font-size: 15px; font-weight: 500; margin-bottom: 6px; color: var(--graphite); }
-.empty p { font-size: 13px; }
-.dept-label { font-size: 11px; font-weight: 600; color: var(--umbra); text-transform: uppercase; letter-spacing: 0.8px; padding: 14px 16px 6px; }
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--umbra:#6B4F3A;--umbra2:#8a6548;--linen:#F5F0EA;--graphite:#2C2C2C;--muted:#8a7f78;--border:#e0d9d3;--bg:#faf8f6;--card:#fff;--surface:#f5f0ea}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--graphite);min-height:100vh}
+
+header{background:var(--umbra);padding:20px;text-align:center}
+.header-brand{font-size:10px;letter-spacing:3px;color:rgba(245,240,234,.6);text-transform:uppercase;margin-bottom:6px}
+.header-title{font-size:22px;font-weight:400;color:var(--linen);margin-bottom:4px}
+.header-sub{font-size:13px;color:rgba(245,240,234,.6)}
+
+.container{max-width:800px;margin:0 auto;padding:20px}
+
+.tabs{display:flex;background:var(--card);border:0.5px solid var(--border);border-radius:var(--border-radius-lg, 12px);overflow:hidden;margin-bottom:14px}
+.tab{flex:1;padding:13px;font-size:14px;cursor:pointer;color:var(--muted);text-align:center;transition:all .15s;font-family:inherit;background:transparent;border:none}
+.tab.active{color:var(--umbra);font-weight:500;background:var(--linen)}
+
+.search-bar{position:relative;margin-bottom:12px}
+.search-bar input{width:100%;padding:11px 14px 11px 40px;font-size:14px;border:0.5px solid var(--border);border-radius:12px;background:var(--card);font-family:inherit}
+.search-bar input:focus{outline:none;border-color:var(--umbra)}
+.search-ico{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:16px;pointer-events:none}
+
+.dept-filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.df{padding:6px 14px;border-radius:20px;border:0.5px solid var(--border);font-size:12px;color:var(--muted);cursor:pointer;background:transparent;font-family:inherit;transition:all .12s;white-space:nowrap}
+.df.active{background:var(--umbra);color:var(--linen);border-color:var(--umbra)}
+
+.cards{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.card{background:var(--card);border:0.5px solid var(--border);border-radius:10px;padding:12px 14px}
+.card-name{font-size:13px;color:var(--graphite);margin-bottom:8px;line-height:1.5}
+.card-footer{display:flex;justify-content:space-between;align-items:center}
+.card-price{font-size:14px;font-weight:500;color:var(--umbra)}
+.card-unit{font-size:11px;color:var(--muted)}
+.card-approx{font-size:10px;color:var(--umbra);background:var(--linen);padding:2px 6px;border-radius:4px;margin-top:4px;display:inline-block}
+
+.empty{padding:32px;text-align:center;color:var(--muted);font-size:14px;grid-column:1/-1}
+
+.results-count{font-size:12px;color:var(--muted);margin-bottom:10px;padding-left:2px}
+
+footer{text-align:center;padding:24px;color:var(--muted);font-size:12px;margin-top:20px}
+footer a{color:var(--umbra);text-decoration:none}
+
+@media(max-width:480px){
+  .cards{grid-template-columns:1fr}
+  .header-title{font-size:18px}
+  .container{padding:12px}
+}
 </style>
 </head>
 <body>
+
 <header>
-  <div class="header-top">
-    <div class="brand">
-      <div class="brand-mark">RW</div>
-      <div>
-        <div class="brand-name">Rewise Studio</div>
-        <div class="brand-sub">Поиск по прайсу</div>
-      </div>
-    </div>
-  </div>
-  <div class="search-wrap">
-    <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-    <input type="text" id="search" placeholder="Набойки, молния, чистка..." autocomplete="off" autocorrect="off" spellcheck="false">
-  </div>
+  <div class="header-title">Rewise Studio</div>
+  <div class="header-brand">Ремонт та реставрація взуття і сумок</div>
+  <div class="header-sub">Прайс-лист послуг</div>
 </header>
-<div class="filters" id="filters">
-  <button class="fbtn active" data-filter="all">Всё</button>
-  <button class="fbtn" data-filter="shoes">Обувь</button>
-  <button class="fbtn" data-filter="bags">Сумки</button>
+
+<div class="container">
+  <div class="tabs">
+    <button class="tab active" onclick="setCategory('shoes',this)">👟 Взуття</button>
+    <button class="tab" onclick="setCategory('bags',this)">👜 Сумки та аксесуари</button>
+  </div>
+
+  <div class="search-bar">
+    <span class="search-ico">⌕</span>
+    <input type="text" id="search" placeholder="Пошук послуги..." oninput="render()">
+  </div>
+
+  <div class="dept-filters" id="dept-filters"></div>
+  <div class="results-count" id="results-count"></div>
+  <div class="cards" id="cards"></div>
 </div>
-<div class="meta-bar" id="meta">Всего позиций: 161</div>
-<div class="results" id="results"><div class="dept-label">Обувь · Чистка / Базовый уход</div><div class="result-item"><div class="result-left"><div class="result-name">Чистка — летняя обувь</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">1&nbsp;200 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Чистка — низкая обувь</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">1&nbsp;400 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Чистка — средняя обувь</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">1&nbsp;600 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Чистка — высокие сапоги</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">1&nbsp;800 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Чистка — UGG и меховая</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">1&nbsp;400 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Базовый уход — низкая обувь</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">1&nbsp;400 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Базовый уход — средняя обувь</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">1&nbsp;600 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Базовый уход — высокие сапоги</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">1&nbsp;800 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Базовый уход — UGG и меховая</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">1&nbsp;400 ₴</div></div></div><div class="dept-label">Обувь · Покраска / Реставрация</div><div class="result-item"><div class="result-left"><div class="result-name">Покраска — летняя обувь</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">1&nbsp;400 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Покраска — низкая обувь</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">1&nbsp;800 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Покраска — средняя обувь</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">2&nbsp;000 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Покраска — высокие сапоги</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">2&nbsp;800 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Покраска — UGG и меховая</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">1&nbsp;800 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Покраска / отбеливание Midsole (боковая часть подошвы)</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">1&nbsp;100 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Отбеливание подошвы обуви Loro Piana</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">1&nbsp;100 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Покраска каблуков</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">900 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Покраска ранта обуви</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">700 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Покраска танкетки</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">1&nbsp;200 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Глассаж — полировка гладкой кожи до блеска (отдельная услуга)</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">600 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Реставрация — летняя обувь</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price approx">от 1&nbsp;600 ₴</div><div class="approx-badge">уточнить после осмотра</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Реставрация — низкая обувь</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price approx">от 2&nbsp;000 ₴</div><div class="approx-badge">уточнить после осмотра</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Реставрация — средняя обувь</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price approx">от 2&nbsp;200 ₴</div><div class="approx-badge">уточнить после осмотра</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Реставрация — высокие сапоги</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price approx">от 3&nbsp;200 ₴</div><div class="approx-badge">уточнить после осмотра</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Реставрация — UGG и меховая</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price approx">от 2&nbsp;400 ₴</div><div class="approx-badge">уточнить после осмотра</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Реставрация носочной части обуви</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price approx">от 1&nbsp;200 ₴</div><div class="approx-badge">уточнить после осмотра</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Реставрация каблуков (гладкая кожа)</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price approx">от 900 ₴</div><div class="approx-badge">уточнить после осмотра</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Реставрация каблуков (лаковая кожа)</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price approx">от 1&nbsp;200 ₴</div><div class="approx-badge">уточнить после осмотра</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Реставрация стелек — открытая летняя обувь</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price approx">от 1&nbsp;200 ₴</div><div class="approx-badge">уточнить после осмотра</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Устранение повреждений верха обуви</div><div class="result-meta">1 место</div></div><div class="result-right"><div class="result-price approx">от 1&nbsp;000 ₴</div><div class="approx-badge">уточнить после осмотра</div></div></div><div class="dept-label">Обувь · Каблуки и набойки</div><div class="result-item"><div class="result-left"><div class="result-name">Набойки листовые</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">700 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Набойки формованные</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">850 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Набойки штифтовые полиуретановые — шпилька</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">550 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Набойки металлические — шпилька</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">700 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Наращивание каблуков</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">400 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Выравнивание каблука под набойку</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">250 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Демонтаж металлического штифта перед заменой набойки</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">250 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Замена каблуков без обтяжки</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">1&nbsp;800 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Замена каблуков с обтяжкой кожей</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">2&nbsp;500 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Замена обтяжки каблуков — новая набойка включена</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">2&nbsp;400 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Замена обтяжки танкетки</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">2&nbsp;600 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Укрепление каблука</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">400 ₴</div></div></div><div class="dept-label">Обувь · Подошва</div><div class="result-item"><div class="result-left"><div class="result-name">Профилактика женская</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">1&nbsp;200 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Профилактика мужская</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">1&nbsp;200 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Профилактика женская комбинированная</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">1&nbsp;500 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Профилактика на всю площадь подошвы</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">1&nbsp;400 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Профилактика полный след спортивной обуви</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">1&nbsp;800 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Наращивание носочной части подошвы</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">400 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Полировка ранта обуви</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">400 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Локальная подклейка</div><div class="result-meta">1 место</div></div><div class="result-right"><div class="result-price">300 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Подклейка подошвы по периметру</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">600 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Переклейка подошвы / следа</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">900 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Переклейка + прошивка подошвы</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">1&nbsp;400 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Подклейка / переклейка стелек</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">400 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Прошивка подошвы</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">800 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Прошивка подошвы сегментами</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">600 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Изготовление и замена основных стелек из картона</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">700 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Перетяжка основных стелек — открытая обувь</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">2&nbsp;600 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Перетяжка стелек в носочной части — открытая обувь</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">1&nbsp;600 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Тиснение брендового лого на стельке</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">600 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Замена задников обуви</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">900 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Замена задников с разбором подошвы</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">1&nbsp;300 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Замена резиновой подошвы</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">2&nbsp;400 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Замена подошвы кожволон</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">3&nbsp;000 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Замена кожаной подошвы — клеевой метод</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">4&nbsp;000 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Замена кожаной подошвы — прошивной метод</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">6&nbsp;000 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Замена подошвы Loro Piana</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">4&nbsp;000 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Замена подошвы Golden Goose</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">4&nbsp;000 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Замена супинатора</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">600 ₴</div></div></div><div class="dept-label">Обувь · Швейные работы и детали</div><div class="result-item"><div class="result-left"><div class="result-name">Восстановление машинной строчки (одно место)</div><div class="result-meta">1 место</div></div><div class="result-right"><div class="result-price">300 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Восстановление ручной строчки (одно место)</div><div class="result-meta">1 место</div></div><div class="result-right"><div class="result-price">500 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Изготовление и замена кожаных стелек — закрытая обувь</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">900 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Изготовление и замена кожаных стелек — открытая обувь</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">900 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Замена подкладки задника из сетки</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">1&nbsp;600 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Замена кармана задника из кожи</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">1&nbsp;300 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Замена кармана задника Balenciaga</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">1&nbsp;800 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Замена подкладки задника из кожи</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">2&nbsp;000 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Внутренняя латка</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">450 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Декоративная латка</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">600 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Изготовление и замена новой детали обуви</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">700 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Замена союзки в кроссовках</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">1&nbsp;600 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Внутренняя латка в носочной части кроссовок</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">400 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Замена деталей верха в босоножках</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">2&nbsp;800 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Ушивка голенища — по высоте</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">1&nbsp;600 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Ушивка голенища — по ширине</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">2&nbsp;000 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Замена резинок с обтяжкой кожей</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">900 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Замена резинок на пряжках обуви</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">500 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Замена резинок в голенище</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">500 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Врезание резинок в голенище</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">1&nbsp;600 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Замена липучек</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">550 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Изготовление и замена ремешков обуви</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">1&nbsp;600 ₴</div></div></div><div class="dept-label">Обувь · Молнии</div><div class="result-item"><div class="result-left"><div class="result-name">Замена молнии до 20 см (без стоимости материала)</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">700 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Замена молнии от 21 см (без стоимости материала)</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">900 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Замена бегунка молнии</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">300 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Врезание молнии в голенище (без стоимости материала)</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">2&nbsp;200 ₴</div></div></div><div class="dept-label">Обувь · Растяжка</div><div class="result-item"><div class="result-left"><div class="result-name">Растяжка обуви в подъёме / ширина</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">600 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Растяжка голенища сапог / ботинок</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">1&nbsp;000 ₴</div></div></div><div class="dept-label">Обувь · Фурнитура</div><div class="result-item"><div class="result-left"><div class="result-name">Замена крючков + резинка</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">500 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Замена пряжки (без стоимости материала)</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">450 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Замена блочка и люверса</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">200 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Замена кнопки (без разбора изделия)</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">200 ₴</div></div></div><div class="dept-label">Обувь · Мелкий ремонт</div><div class="result-item"><div class="result-left"><div class="result-name">Мелкий ремонт обуви</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">400 ₴</div></div></div><div class="dept-label">Сумки · Чистка / Базовый уход</div><div class="result-item"><div class="result-left"><div class="result-name">Чистка — кожаная сумка S</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">1&nbsp;400 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Чистка — кожаная сумка M</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">1&nbsp;600 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Чистка — кожаная сумка L</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">1&nbsp;800 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Чистка — текстильная сумка S</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">1&nbsp;400 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Чистка — текстильная сумка M</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">1&nbsp;600 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Чистка — текстильная сумка L</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">1&nbsp;800 ₴</div></div></div><div class="dept-label">Сумки · Покраска / Реставрация</div><div class="result-item"><div class="result-left"><div class="result-name">Покраска — кожаная сумка S</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">1&nbsp;800 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Покраска — кожаная сумка M</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">2&nbsp;200 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Покраска — кожаная сумка L</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">2&nbsp;600 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Покраска — поясной ремень</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">1&nbsp;400 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Реставрация — кожаная сумка S</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price approx">от 2&nbsp;200 ₴</div><div class="approx-badge">уточнить после осмотра</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Реставрация — кожаная сумка M</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price approx">от 2&nbsp;700 ₴</div><div class="approx-badge">уточнить после осмотра</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Реставрация — кожаная сумка L</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price approx">от 3&nbsp;200 ₴</div><div class="approx-badge">уточнить после осмотра</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Локальная реставрация кожи сумки</div><div class="result-meta">1 место</div></div><div class="result-right"><div class="result-price approx">от 1&nbsp;000 ₴</div><div class="approx-badge">уточнить после осмотра</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Реставрация уголков сумки</div><div class="result-meta">1 место</div></div><div class="result-right"><div class="result-price approx">от 450 ₴</div><div class="approx-badge">уточнить после осмотра</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Реставрация ручек сумки</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price approx">от 1&nbsp;600 ₴</div><div class="approx-badge">уточнить после осмотра</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Реставрация плечевого ремня сумки</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price approx">от 1&nbsp;600 ₴</div><div class="approx-badge">уточнить после осмотра</div></div></div><div class="dept-label">Сумки · Реставрация урезов</div><div class="result-item"><div class="result-left"><div class="result-name">Торцевание уреза кожи</div><div class="result-meta">1 см</div></div><div class="result-right"><div class="result-price">12 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Торцевание ручек сумки (2 стороны)</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">1&nbsp;200 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Торцевание ручек сумки (4 стороны)</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">1&nbsp;400 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Торцевание плечевого ремня сумки</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">1&nbsp;400 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Торцевание тренчика / пулера / держателя ручек</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">400 ₴</div></div></div><div class="dept-label">Сумки · Швейные работы и детали</div><div class="result-item"><div class="result-left"><div class="result-name">Восстановление машинного шва сумки</div><div class="result-meta">1 место</div></div><div class="result-right"><div class="result-price">300 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Подклейка кожи / детали сумки</div><div class="result-meta">1 место</div></div><div class="result-right"><div class="result-price">300 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Ремонт крепления ручек сумки (без замены деталей)</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">450 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Изготовление кожаного пуллера на бегунок</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">500 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Изготовление и замена тренчика сумки</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">500 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Изготовление и перешивка деталей сумки</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">900 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Изготовление и замена настрочных креплений ручек сумки</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">600 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Изготовление и замена втачных креплений ручек сумки</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">400 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Замена канта в кошельке / клатче</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">1&nbsp;200 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Замена окантовки сумки — кедер</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">1&nbsp;200 ₴</div></div></div><div class="dept-label">Сумки · Мелкий ремонт</div><div class="result-item"><div class="result-left"><div class="result-name">Мелкий ремонт сумки</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">400 ₴</div></div></div><div class="dept-label">Сумки · Фурнитура</div><div class="result-item"><div class="result-left"><div class="result-name">Замена карабина сумки (без стоимости материала)</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">250 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Замена пряжки ремня сумки (без стоимости материала)</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">250 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Замена кнопки / заклёпки / люверса сумки</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">200 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Замена магнита сумки (без стоимости материала)</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">500 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Установка декоративной латки</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">900 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Установка внутренней латки</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">450 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Установка кольца / полукольца (без стоимости материала)</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">250 ₴</div></div></div><div class="dept-label">Сумки · Молнии</div><div class="result-item"><div class="result-left"><div class="result-name">Замена молнии сумки до 25 см (без стоимости материала)</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">1&nbsp;400 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Замена молнии сумки от 25 см (без стоимости материала)</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">1&nbsp;600 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Замена молнии в кошельке / органайзере (без стоимости материала)</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">1&nbsp;800 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Замена молнии рюкзака / большой сумки (без стоимости материала)</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">1&nbsp;600 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Замена бегунка молнии сумки</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">300 ₴</div></div></div><div class="dept-label">Сумки · Ручки и ремень</div><div class="result-item"><div class="result-left"><div class="result-name">Укорачивание плечевого ремня сумки</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">450 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Замена плечевого ремня сумки с подбором кожи</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">2&nbsp;000 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Замена ручек сумки типа шопер</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">1&nbsp;600 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Замена ручек кожаной сумки с подбором кожи</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">2&nbsp;800 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Замена ручек рюкзака с наполнителем</div><div class="result-meta">пара</div></div><div class="result-right"><div class="result-price">3&nbsp;200 ₴</div></div></div><div class="dept-label">Сумки · Подкладка</div><div class="result-item"><div class="result-left"><div class="result-name">Замена подкладки — сумка S</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">1&nbsp;800 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Замена подкладки — сумка M</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">2&nbsp;200 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Замена подкладки — сумка L</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">2&nbsp;600 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Замена подкладки — кошелёк / органайзер</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">2&nbsp;600 ₴</div></div></div><div class="dept-label">Сумки · Поясной ремень</div><div class="result-item"><div class="result-left"><div class="result-name">Пробивание отверстий</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">200 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Укорачивание кожаного поясного ремня</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">450 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Укорачивание поясного ремня с перешиванием пряжки</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">600 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Замена подклада поясного ремня</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">2&nbsp;000 ₴</div></div></div><div class="result-item"><div class="result-left"><div class="result-name">Реставрация поясного ремня (проклейка,прошивка)</div><div class="result-meta">1 шт.</div></div><div class="result-right"><div class="result-price">800 ₴</div></div></div></div>
+
+<footer>
+  <div>Rewise Studio · Одеса</div>
+  <div style="margin-top:4px"><a href="https://instagram.com/rewise.studio">@rewise.studio</a></div>
+  <div style="margin-top:8px;font-size:11px;color:#bbb">Ціни вказані орієнтовно. Остаточна вартість узгоджується після огляду виробу.</div>
+</footer>
+
 <script>
-const DATA = [
-  {cat:"shoes",dept:"cleaning",deptName:"Чистка / Базовый уход",name:'Чистка — летняя обувь',unit:"пара",price:1200},
-  {cat:"shoes",dept:"cleaning",deptName:"Чистка / Базовый уход",name:'Чистка — низкая обувь',unit:"пара",price:1400},
-  {cat:"shoes",dept:"cleaning",deptName:"Чистка / Базовый уход",name:'Чистка — средняя обувь',unit:"пара",price:1600},
-  {cat:"shoes",dept:"cleaning",deptName:"Чистка / Базовый уход",name:'Чистка — высокие сапоги',unit:"пара",price:1800},
-  {cat:"shoes",dept:"cleaning",deptName:"Чистка / Базовый уход",name:'Чистка — UGG и меховая',unit:"пара",price:1400},
-  {cat:"shoes",dept:"cleaning",deptName:"Чистка / Базовый уход",name:'Базовый уход — низкая обувь',unit:"пара",price:1400},
-  {cat:"shoes",dept:"cleaning",deptName:"Чистка / Базовый уход",name:'Базовый уход — средняя обувь',unit:"пара",price:1600},
-  {cat:"shoes",dept:"cleaning",deptName:"Чистка / Базовый уход",name:'Базовый уход — высокие сапоги',unit:"пара",price:1800},
-  {cat:"shoes",dept:"cleaning",deptName:"Чистка / Базовый уход",name:'Базовый уход — UGG и меховая',unit:"пара",price:1400},
-  {cat:"shoes",dept:"painting",deptName:"Покраска / Реставрация",name:'Покраска — летняя обувь',unit:"пара",price:1400},
-  {cat:"shoes",dept:"painting",deptName:"Покраска / Реставрация",name:'Покраска — низкая обувь',unit:"пара",price:1800},
-  {cat:"shoes",dept:"painting",deptName:"Покраска / Реставрация",name:'Покраска — средняя обувь',unit:"пара",price:2000},
-  {cat:"shoes",dept:"painting",deptName:"Покраска / Реставрация",name:'Покраска — высокие сапоги',unit:"пара",price:2800},
-  {cat:"shoes",dept:"painting",deptName:"Покраска / Реставрация",name:'Покраска — UGG и меховая',unit:"пара",price:1800},
-  {cat:"shoes",dept:"painting",deptName:"Покраска / Реставрация",name:'Покраска / отбеливание Midsole (боковая часть подошвы)',unit:"пара",price:1100},
-  {cat:"shoes",dept:"painting",deptName:"Покраска / Реставрация",name:'Отбеливание подошвы обуви Loro Piana',unit:"пара",price:1100},
-  {cat:"shoes",dept:"painting",deptName:"Покраска / Реставрация",name:'Покраска каблуков',unit:"пара",price:900},
-  {cat:"shoes",dept:"painting",deptName:"Покраска / Реставрация",name:'Покраска ранта обуви',unit:"пара",price:700},
-  {cat:"shoes",dept:"painting",deptName:"Покраска / Реставрация",name:'Покраска танкетки',unit:"пара",price:1200},
-  {cat:"shoes",dept:"painting",deptName:"Покраска / Реставрация",name:'Глассаж — полировка гладкой кожи до блеска (отдельная услуга)',unit:"пара",price:600},
-  {cat:"shoes",dept:"painting",deptName:"Покраска / Реставрация",name:'Реставрация — летняя обувь',unit:"пара",price:1600,approx:true},
-  {cat:"shoes",dept:"painting",deptName:"Покраска / Реставрация",name:'Реставрация — низкая обувь',unit:"пара",price:2000,approx:true},
-  {cat:"shoes",dept:"painting",deptName:"Покраска / Реставрация",name:'Реставрация — средняя обувь',unit:"пара",price:2200,approx:true},
-  {cat:"shoes",dept:"painting",deptName:"Покраска / Реставрация",name:'Реставрация — высокие сапоги',unit:"пара",price:3200,approx:true},
-  {cat:"shoes",dept:"painting",deptName:"Покраска / Реставрация",name:'Реставрация — UGG и меховая',unit:"пара",price:2400,approx:true},
-  {cat:"shoes",dept:"painting",deptName:"Покраска / Реставрация",name:'Реставрация носочной части обуви',unit:"пара",price:1200,approx:true},
-  {cat:"shoes",dept:"painting",deptName:"Покраска / Реставрация",name:'Реставрация каблуков (гладкая кожа)',unit:"пара",price:900,approx:true},
-  {cat:"shoes",dept:"painting",deptName:"Покраска / Реставрация",name:'Реставрация каблуков (лаковая кожа)',unit:"пара",price:1200,approx:true},
-  {cat:"shoes",dept:"painting",deptName:"Покраска / Реставрация",name:'Реставрация стелек — открытая летняя обувь',unit:"пара",price:1200,approx:true},
-  {cat:"shoes",dept:"painting",deptName:"Покраска / Реставрация",name:'Устранение повреждений верха обуви',unit:"1 место",price:1000,approx:true},
-  {cat:"shoes",dept:"heels",deptName:"Каблуки и набойки",name:'Набойки листовые',unit:"пара",price:700},
-  {cat:"shoes",dept:"heels",deptName:"Каблуки и набойки",name:'Набойки формованные',unit:"пара",price:850},
-  {cat:"shoes",dept:"heels",deptName:"Каблуки и набойки",name:'Набойки штифтовые полиуретановые — шпилька',unit:"пара",price:550},
-  {cat:"shoes",dept:"heels",deptName:"Каблуки и набойки",name:'Набойки металлические — шпилька',unit:"пара",price:700},
-  {cat:"shoes",dept:"heels",deptName:"Каблуки и набойки",name:'Наращивание каблуков',unit:"пара",price:400},
-  {cat:"shoes",dept:"heels",deptName:"Каблуки и набойки",name:'Выравнивание каблука под набойку',unit:"пара",price:250},
-  {cat:"shoes",dept:"heels",deptName:"Каблуки и набойки",name:'Демонтаж металлического штифта перед заменой набойки',unit:"пара",price:250},
-  {cat:"shoes",dept:"sole",deptName:"Подошва",name:'Профилактика женская',unit:"пара",price:1200},
-  {cat:"shoes",dept:"sole",deptName:"Подошва",name:'Профилактика мужская',unit:"пара",price:1200},
-  {cat:"shoes",dept:"sole",deptName:"Подошва",name:'Профилактика женская комбинированная',unit:"пара",price:1500},
-  {cat:"shoes",dept:"sole",deptName:"Подошва",name:'Профилактика на всю площадь подошвы',unit:"пара",price:1400},
-  {cat:"shoes",dept:"sole",deptName:"Подошва",name:'Профилактика полный след спортивной обуви',unit:"пара",price:1800},
-  {cat:"shoes",dept:"sole",deptName:"Подошва",name:'Наращивание носочной части подошвы',unit:"пара",price:400},
-  {cat:"shoes",dept:"sole",deptName:"Подошва",name:'Полировка ранта обуви',unit:"пара",price:400},
-  {cat:"shoes",dept:"sole",deptName:"Подошва",name:'Локальная подклейка',unit:"1 место",price:300},
-  {cat:"shoes",dept:"sole",deptName:"Подошва",name:'Подклейка подошвы по периметру',unit:"пара",price:600},
-  {cat:"shoes",dept:"sole",deptName:"Подошва",name:'Переклейка подошвы / следа',unit:"пара",price:900},
-  {cat:"shoes",dept:"sole",deptName:"Подошва",name:'Переклейка + прошивка подошвы',unit:"пара",price:1400},
-  {cat:"shoes",dept:"sole",deptName:"Подошва",name:'Подклейка / переклейка стелек',unit:"пара",price:400},
-  {cat:"shoes",dept:"sole",deptName:"Подошва",name:'Прошивка подошвы',unit:"пара",price:800},
-  {cat:"shoes",dept:"sole",deptName:"Подошва",name:'Прошивка подошвы сегментами',unit:"пара",price:600},
-  {cat:"shoes",dept:"sewing",deptName:"Швейные работы и детали",name:'Восстановление машинной строчки (одно место)',unit:"1 место",price:300},
-  {cat:"shoes",dept:"sewing",deptName:"Швейные работы и детали",name:'Восстановление ручной строчки (одно место)',unit:"1 место",price:500},
-  {cat:"shoes",dept:"sewing",deptName:"Швейные работы и детали",name:'Изготовление и замена кожаных стелек — закрытая обувь',unit:"пара",price:900},
-  {cat:"shoes",dept:"sewing",deptName:"Швейные работы и детали",name:'Изготовление и замена кожаных стелек — открытая обувь',unit:"пара",price:900},
-  {cat:"shoes",dept:"sole",deptName:"Подошва",name:'Изготовление и замена основных стелек из картона',unit:"пара",price:700},
-  {cat:"shoes",dept:"sole",deptName:"Подошва",name:'Перетяжка основных стелек — открытая обувь',unit:"пара",price:2600},
-  {cat:"shoes",dept:"sole",deptName:"Подошва",name:'Перетяжка стелек в носочной части — открытая обувь',unit:"пара",price:1600},
-  {cat:"shoes",dept:"sole",deptName:"Подошва",name:'Тиснение брендового лого на стельке',unit:"пара",price:600},
-  {cat:"shoes",dept:"sewing",deptName:"Швейные работы и детали",name:'Замена подкладки задника из сетки',unit:"пара",price:1600},
-  {cat:"shoes",dept:"sewing",deptName:"Швейные работы и детали",name:'Замена кармана задника из кожи',unit:"пара",price:1300},
-  {cat:"shoes",dept:"sewing",deptName:"Швейные работы и детали",name:'Замена кармана задника Balenciaga',unit:"пара",price:1800},
-  {cat:"shoes",dept:"sewing",deptName:"Швейные работы и детали",name:'Замена подкладки задника из кожи',unit:"пара",price:2000},
-  {cat:"shoes",dept:"sole",deptName:"Подошва",name:'Замена задников обуви',unit:"пара",price:900},
-  {cat:"shoes",dept:"sole",deptName:"Подошва",name:'Замена задников с разбором подошвы',unit:"пара",price:1300},
-  {cat:"shoes",dept:"sole",deptName:"Подошва",name:'Замена резиновой подошвы',unit:"пара",price:2400},
-  {cat:"shoes",dept:"sole",deptName:"Подошва",name:'Замена подошвы кожволон',unit:"пара",price:3000},
-  {cat:"shoes",dept:"sole",deptName:"Подошва",name:'Замена кожаной подошвы — клеевой метод',unit:"пара",price:4000},
-  {cat:"shoes",dept:"sole",deptName:"Подошва",name:'Замена кожаной подошвы — прошивной метод',unit:"пара",price:6000},
-  {cat:"shoes",dept:"sole",deptName:"Подошва",name:'Замена подошвы Loro Piana',unit:"пара",price:4000},
-  {cat:"shoes",dept:"sole",deptName:"Подошва",name:'Замена подошвы Golden Goose',unit:"пара",price:4000},
-  {cat:"shoes",dept:"heels",deptName:"Каблуки и набойки",name:'Замена каблуков без обтяжки',unit:"пара",price:1800},
-  {cat:"shoes",dept:"heels",deptName:"Каблуки и набойки",name:'Замена каблуков с обтяжкой кожей',unit:"пара",price:2500},
-  {cat:"shoes",dept:"heels",deptName:"Каблуки и набойки",name:'Замена обтяжки каблуков — новая набойка включена',unit:"пара",price:2400},
-  {cat:"shoes",dept:"heels",deptName:"Каблуки и набойки",name:'Замена обтяжки танкетки',unit:"пара",price:2600},
-  {cat:"shoes",dept:"heels",deptName:"Каблуки и набойки",name:'Укрепление каблука',unit:"1 шт.",price:400},
-  {cat:"shoes",dept:"sewing",deptName:"Швейные работы и детали",name:'Внутренняя латка',unit:"1 шт.",price:450},
-  {cat:"shoes",dept:"sewing",deptName:"Швейные работы и детали",name:'Декоративная латка',unit:"1 шт.",price:600},
-  {cat:"shoes",dept:"sewing",deptName:"Швейные работы и детали",name:'Изготовление и замена новой детали обуви',unit:"1 шт.",price:700},
-  {cat:"shoes",dept:"sewing",deptName:"Швейные работы и детали",name:'Замена союзки в кроссовках',unit:"пара",price:1600},
-  {cat:"shoes",dept:"sewing",deptName:"Швейные работы и детали",name:'Внутренняя латка в носочной части кроссовок',unit:"1 шт.",price:400},
-  {cat:"shoes",dept:"sewing",deptName:"Швейные работы и детали",name:'Замена деталей верха в босоножках',unit:"пара",price:2800},
-  {cat:"shoes",dept:"zippers",deptName:"Молнии",name:'Замена молнии до 20 см (без стоимости материала)',unit:"1 шт.",price:700},
-  {cat:"shoes",dept:"zippers",deptName:"Молнии",name:'Замена молнии от 21 см (без стоимости материала)',unit:"1 шт.",price:900},
-  {cat:"shoes",dept:"zippers",deptName:"Молнии",name:'Замена бегунка молнии',unit:"1 шт.",price:300},
-  {cat:"shoes",dept:"zippers",deptName:"Молнии",name:'Врезание молнии в голенище (без стоимости материала)',unit:"пара",price:2200},
-  {cat:"shoes",dept:"stretch",deptName:"Растяжка",name:'Растяжка обуви в подъёме / ширина',unit:"пара",price:600},
-  {cat:"shoes",dept:"stretch",deptName:"Растяжка",name:'Растяжка голенища сапог / ботинок',unit:"пара",price:1000},
-  {cat:"shoes",dept:"sewing",deptName:"Швейные работы и детали",name:'Ушивка голенища — по высоте',unit:"пара",price:1600},
-  {cat:"shoes",dept:"sewing",deptName:"Швейные работы и детали",name:'Ушивка голенища — по ширине',unit:"пара",price:2000},
-  {cat:"shoes",dept:"sewing",deptName:"Швейные работы и детали",name:'Замена резинок с обтяжкой кожей',unit:"пара",price:900},
-  {cat:"shoes",dept:"sewing",deptName:"Швейные работы и детали",name:'Замена резинок на пряжках обуви',unit:"пара",price:500},
-  {cat:"shoes",dept:"sewing",deptName:"Швейные работы и детали",name:'Замена резинок в голенище',unit:"1 шт.",price:500},
-  {cat:"shoes",dept:"sewing",deptName:"Швейные работы и детали",name:'Врезание резинок в голенище',unit:"пара",price:1600},
-  {cat:"shoes",dept:"hardware",deptName:"Фурнитура",name:'Замена крючков + резинка',unit:"пара",price:500},
-  {cat:"shoes",dept:"hardware",deptName:"Фурнитура",name:'Замена пряжки (без стоимости материала)',unit:"пара",price:450},
-  {cat:"shoes",dept:"hardware",deptName:"Фурнитура",name:'Замена блочка и люверса',unit:"1 шт.",price:200},
-  {cat:"shoes",dept:"hardware",deptName:"Фурнитура",name:'Замена кнопки (без разбора изделия)',unit:"1 шт.",price:200},
-  {cat:"shoes",dept:"sewing",deptName:"Швейные работы и детали",name:'Замена липучек',unit:"пара",price:550},
-  {cat:"shoes",dept:"sewing",deptName:"Швейные работы и детали",name:'Изготовление и замена ремешков обуви',unit:"пара",price:1600},
-  {cat:"shoes",dept:"sole",deptName:"Подошва",name:'Замена супинатора',unit:"1 шт.",price:600},
-  {cat:"shoes",dept:"minor",deptName:"Мелкий ремонт",name:'Мелкий ремонт обуви',unit:"1 шт.",price:400},
-  {cat:"bags",dept:"cleaning",deptName:"Чистка / Базовый уход",name:'Чистка — кожаная сумка S',unit:"1 шт.",price:1400},
-  {cat:"bags",dept:"cleaning",deptName:"Чистка / Базовый уход",name:'Чистка — кожаная сумка M',unit:"1 шт.",price:1600},
-  {cat:"bags",dept:"cleaning",deptName:"Чистка / Базовый уход",name:'Чистка — кожаная сумка L',unit:"1 шт.",price:1800},
-  {cat:"bags",dept:"cleaning",deptName:"Чистка / Базовый уход",name:'Чистка — текстильная сумка S',unit:"1 шт.",price:1400},
-  {cat:"bags",dept:"cleaning",deptName:"Чистка / Базовый уход",name:'Чистка — текстильная сумка M',unit:"1 шт.",price:1600},
-  {cat:"bags",dept:"cleaning",deptName:"Чистка / Базовый уход",name:'Чистка — текстильная сумка L',unit:"1 шт.",price:1800},
-  {cat:"bags",dept:"painting",deptName:"Покраска / Реставрация",name:'Покраска — кожаная сумка S',unit:"1 шт.",price:1800},
-  {cat:"bags",dept:"painting",deptName:"Покраска / Реставрация",name:'Покраска — кожаная сумка M',unit:"1 шт.",price:2200},
-  {cat:"bags",dept:"painting",deptName:"Покраска / Реставрация",name:'Покраска — кожаная сумка L',unit:"1 шт.",price:2600},
-  {cat:"bags",dept:"painting",deptName:"Покраска / Реставрация",name:'Покраска — поясной ремень',unit:"1 шт.",price:1400},
-  {cat:"bags",dept:"painting",deptName:"Покраска / Реставрация",name:'Реставрация — кожаная сумка S',unit:"1 шт.",price:2200,approx:true},
-  {cat:"bags",dept:"painting",deptName:"Покраска / Реставрация",name:'Реставрация — кожаная сумка M',unit:"1 шт.",price:2700,approx:true},
-  {cat:"bags",dept:"painting",deptName:"Покраска / Реставрация",name:'Реставрация — кожаная сумка L',unit:"1 шт.",price:3200,approx:true},
-  {cat:"bags",dept:"painting",deptName:"Покраска / Реставрация",name:'Локальная реставрация кожи сумки',unit:"1 место",price:1000,approx:true},
-  {cat:"bags",dept:"painting",deptName:"Покраска / Реставрация",name:'Реставрация уголков сумки',unit:"1 место",price:450,approx:true},
-  {cat:"bags",dept:"painting",deptName:"Покраска / Реставрация",name:'Реставрация ручек сумки',unit:"пара",price:1600,approx:true},
-  {cat:"bags",dept:"painting",deptName:"Покраска / Реставрация",name:'Реставрация плечевого ремня сумки',unit:"1 шт.",price:1600,approx:true},
-  {cat:"bags",dept:"edges",deptName:"Реставрация урезов",name:'Торцевание уреза кожи',unit:"1 см",price:12},
-  {cat:"bags",dept:"edges",deptName:"Реставрация урезов",name:'Торцевание ручек сумки (2 стороны)',unit:"пара",price:1200},
-  {cat:"bags",dept:"edges",deptName:"Реставрация урезов",name:'Торцевание ручек сумки (4 стороны)',unit:"пара",price:1400},
-  {cat:"bags",dept:"edges",deptName:"Реставрация урезов",name:'Торцевание плечевого ремня сумки',unit:"1 шт.",price:1400},
-  {cat:"bags",dept:"edges",deptName:"Реставрация урезов",name:'Торцевание тренчика / пулера / держателя ручек',unit:"1 шт.",price:400},
-  {cat:"bags",dept:"sewing",deptName:"Швейные работы и детали",name:'Восстановление машинного шва сумки',unit:"1 место",price:300},
-  {cat:"bags",dept:"sewing",deptName:"Швейные работы и детали",name:'Подклейка кожи / детали сумки',unit:"1 место",price:300},
-  {cat:"bags",dept:"minor",deptName:"Мелкий ремонт",name:'Мелкий ремонт сумки',unit:"1 шт.",price:400},
-  {cat:"bags",dept:"sewing",deptName:"Швейные работы и детали",name:'Ремонт крепления ручек сумки (без замены деталей)',unit:"1 шт.",price:450},
-  {cat:"bags",dept:"hardware",deptName:"Фурнитура",name:'Замена карабина сумки (без стоимости материала)',unit:"1 шт.",price:250},
-  {cat:"bags",dept:"hardware",deptName:"Фурнитура",name:'Замена пряжки ремня сумки (без стоимости материала)',unit:"1 шт.",price:250},
-  {cat:"bags",dept:"hardware",deptName:"Фурнитура",name:'Замена кнопки / заклёпки / люверса сумки',unit:"1 шт.",price:200},
-  {cat:"bags",dept:"hardware",deptName:"Фурнитура",name:'Замена магнита сумки (без стоимости материала)',unit:"1 шт.",price:500},
-  {cat:"bags",dept:"hardware",deptName:"Фурнитура",name:'Установка декоративной латки',unit:"1 шт.",price:900},
-  {cat:"bags",dept:"hardware",deptName:"Фурнитура",name:'Установка внутренней латки',unit:"1 шт.",price:450},
-  {cat:"bags",dept:"hardware",deptName:"Фурнитура",name:'Установка кольца / полукольца (без стоимости материала)',unit:"1 шт.",price:250},
-  {cat:"bags",dept:"zippers",deptName:"Молнии",name:'Замена молнии сумки до 25 см (без стоимости материала)',unit:"1 шт.",price:1400},
-  {cat:"bags",dept:"zippers",deptName:"Молнии",name:'Замена молнии сумки от 25 см (без стоимости материала)',unit:"1 шт.",price:1600},
-  {cat:"bags",dept:"zippers",deptName:"Молнии",name:'Замена молнии в кошельке / органайзере (без стоимости материала)',unit:"1 шт.",price:1800},
-  {cat:"bags",dept:"zippers",deptName:"Молнии",name:'Замена молнии рюкзака / большой сумки (без стоимости материала)',unit:"1 шт.",price:1600},
-  {cat:"bags",dept:"zippers",deptName:"Молнии",name:'Замена бегунка молнии сумки',unit:"1 шт.",price:300},
-  {cat:"bags",dept:"handles",deptName:"Ручки и ремень",name:'Укорачивание плечевого ремня сумки',unit:"1 шт.",price:450},
-  {cat:"bags",dept:"handles",deptName:"Ручки и ремень",name:'Замена плечевого ремня сумки с подбором кожи',unit:"1 шт.",price:2000},
-  {cat:"bags",dept:"handles",deptName:"Ручки и ремень",name:'Замена ручек сумки типа шопер',unit:"пара",price:1600},
-  {cat:"bags",dept:"handles",deptName:"Ручки и ремень",name:'Замена ручек кожаной сумки с подбором кожи',unit:"пара",price:2800},
-  {cat:"bags",dept:"handles",deptName:"Ручки и ремень",name:'Замена ручек рюкзака с наполнителем',unit:"пара",price:3200},
-  {cat:"bags",dept:"sewing",deptName:"Швейные работы и детали",name:'Изготовление кожаного пуллера на бегунок',unit:"1 шт.",price:500},
-  {cat:"bags",dept:"sewing",deptName:"Швейные работы и детали",name:'Изготовление и замена тренчика сумки',unit:"1 шт.",price:500},
-  {cat:"bags",dept:"sewing",deptName:"Швейные работы и детали",name:'Изготовление и перешивка деталей сумки',unit:"1 шт.",price:900},
-  {cat:"bags",dept:"sewing",deptName:"Швейные работы и детали",name:'Изготовление и замена настрочных креплений ручек сумки',unit:"1 шт.",price:600},
-  {cat:"bags",dept:"sewing",deptName:"Швейные работы и детали",name:'Изготовление и замена втачных креплений ручек сумки',unit:"1 шт.",price:400},
-  {cat:"bags",dept:"sewing",deptName:"Швейные работы и детали",name:'Замена канта в кошельке / клатче',unit:"1 шт.",price:1200},
-  {cat:"bags",dept:"sewing",deptName:"Швейные работы и детали",name:'Замена окантовки сумки — кедер',unit:"1 шт.",price:1200},
-  {cat:"bags",dept:"lining",deptName:"Подкладка",name:'Замена подкладки — сумка S',unit:"1 шт.",price:1800},
-  {cat:"bags",dept:"lining",deptName:"Подкладка",name:'Замена подкладки — сумка M',unit:"1 шт.",price:2200},
-  {cat:"bags",dept:"lining",deptName:"Подкладка",name:'Замена подкладки — сумка L',unit:"1 шт.",price:2600},
-  {cat:"bags",dept:"lining",deptName:"Подкладка",name:'Замена подкладки — кошелёк / органайзер',unit:"1 шт.",price:2600},
-  {cat:"bags",dept:"belt",deptName:"Поясной ремень",name:'Пробивание отверстий',unit:"1 шт.",price:200},
-  {cat:"bags",dept:"belt",deptName:"Поясной ремень",name:'Укорачивание кожаного поясного ремня',unit:"1 шт.",price:450},
-  {cat:"bags",dept:"belt",deptName:"Поясной ремень",name:'Укорачивание поясного ремня с перешиванием пряжки',unit:"1 шт.",price:600},
-  {cat:"bags",dept:"belt",deptName:"Поясной ремень",name:'Замена подклада поясного ремня',unit:"1 шт.",price:2000},
-  {cat:"bags",dept:"belt",deptName:"Поясной ремень",name:'Реставрация поясного ремня (проклейка,прошивка)',unit:"1 шт.",price:800},
-];
-let activeFilter="all",query="";
-function fmt(n){return n.toLocaleString("ru-RU")+" ₴";}
-function highlight(text,q){if(!q)return text;const idx=text.toLowerCase().indexOf(q.toLowerCase());if(idx===-1)return text;return text.slice(0,idx)+"<mark>"+text.slice(idx,idx+q.length)+"</mark>"+text.slice(idx+q.length);}
-function render(){
-  const q=query.toLowerCase().trim();
-  const filtered=DATA.filter(d=>{
-    const matchCat=activeFilter==="all"||d.cat===activeFilter;
-    const matchQ=!q||d.name.toLowerCase().includes(q)||d.deptName.toLowerCase().includes(q);
-    return matchCat&&matchQ;
-  });
-  const meta=document.getElementById("meta");
-  const container=document.getElementById("results");
-  if(filtered.length===0){meta.textContent="";container.innerHTML='<div class="empty"><div class="empty-icon">🔍</div><h3>Ничего не найдено</h3><p>Попробуйте другой запрос</p></div>';return;}
-  meta.textContent=q||activeFilter!=="all"?"Найдено: "+filtered.length:"Всего позиций: "+filtered.length;
-  if(q){container.innerHTML=filtered.map(d=>itemHTML(d,q)).join("");return;}
-  const groups={};
-  filtered.forEach(d=>{const key=d.cat+"||"+d.dept;if(!groups[key])groups[key]={deptName:d.deptName,cat:d.cat,items:[]};groups[key].items.push(d);});
-  let html="";
-  Object.values(groups).forEach(g=>{
-    html+='<div class="dept-label">'+(g.cat==="shoes"?"Обувь":"Сумки")+" · "+g.deptName+"</div>";
-    html+=g.items.map(d=>itemHTML(d,"")).join("");
-  });
-  container.innerHTML=html;
-}
-function itemHTML(d,q){
-  const catLabel=d.cat==="shoes"?"Обувь":"Сумки";
-  const meta=q?catLabel+" · "+d.deptName+" · "+d.unit:d.unit;
-  return '<div class="result-item"><div class="result-left"><div class="result-name">'+highlight(d.name,q)+'</div><div class="result-meta">'+meta+'</div></div><div class="result-right"><div class="result-price'+(d.approx?" approx":"")+'">'+( d.approx?"от ":"")+fmt(d.price)+'</div>'+(d.approx?'<div class="approx-badge">уточнить после осмотра</div>':"")+'</div></div>';
-}
-document.getElementById("search").addEventListener("input",e=>{query=e.target.value;render();});
-document.getElementById("filters").addEventListener("click",e=>{
-  const btn=e.target.closest(".fbtn");
-  if(!btn)return;
-  document.querySelectorAll(".fbtn").forEach(b=>b.classList.remove("active"));
-  btn.classList.add("active");
-  activeFilter=btn.dataset.filter;
+const SERVICES = {
+  "shoes": {
+    "cleaning": [
+      {
+        "name": "Чистка — літнє взуття",
+        "unit": "пара",
+        "price": 1200,
+        "approx": false
+      },
+      {
+        "name": "Чистка — низьке взуття",
+        "unit": "пара",
+        "price": 1400,
+        "approx": false
+      },
+      {
+        "name": "Чистка — середнє взуття",
+        "unit": "пара",
+        "price": 1600,
+        "approx": false
+      },
+      {
+        "name": "Чистка — високі чоботи",
+        "unit": "пара",
+        "price": 1800,
+        "approx": false
+      },
+      {
+        "name": "Чистка — UGG та хутряне",
+        "unit": "пара",
+        "price": 1400,
+        "approx": false
+      },
+      {
+        "name": "Базовий догляд — низьке взуття",
+        "unit": "пара",
+        "price": 1400,
+        "approx": false
+      },
+      {
+        "name": "Базовий догляд — середнє взуття",
+        "unit": "пара",
+        "price": 1600,
+        "approx": false
+      },
+      {
+        "name": "Базовий догляд — високі чоботи",
+        "unit": "пара",
+        "price": 1800,
+        "approx": false
+      },
+      {
+        "name": "Базовий догляд — UGG та хутряне",
+        "unit": "пара",
+        "price": 1400,
+        "approx": false
+      }
+    ],
+    "painting": [
+      {
+        "name": "Фарбування — літнє взуття",
+        "unit": "пара",
+        "price": 1400,
+        "approx": false
+      },
+      {
+        "name": "Фарбування — низьке взуття",
+        "unit": "пара",
+        "price": 1800,
+        "approx": false
+      },
+      {
+        "name": "Фарбування — середнє взуття",
+        "unit": "пара",
+        "price": 2000,
+        "approx": false
+      },
+      {
+        "name": "Фарбування — високі чоботи",
+        "unit": "пара",
+        "price": 2800,
+        "approx": false
+      },
+      {
+        "name": "Фарбування — UGG та хутряне",
+        "unit": "пара",
+        "price": 1800,
+        "approx": false
+      },
+      {
+        "name": "Фарбування / відбілювання Midsole (бокова частина підошви)",
+        "unit": "пара",
+        "price": 1100,
+        "approx": false
+      },
+      {
+        "name": "Відбілювання підошви взуття Loro Piana",
+        "unit": "пара",
+        "price": 1100,
+        "approx": false
+      },
+      {
+        "name": "Фарбування каблуків",
+        "unit": "пара",
+        "price": 900,
+        "approx": false
+      },
+      {
+        "name": "Фарбування ранта взуття",
+        "unit": "пара",
+        "price": 700,
+        "approx": false
+      },
+      {
+        "name": "Фарбування танкетки",
+        "unit": "пара",
+        "price": 1200,
+        "approx": false
+      },
+      {
+        "name": "Глясаж — полірування гладкої шкіри до блиску (окрема послуга)",
+        "unit": "пара",
+        "price": 600,
+        "approx": false
+      },
+      {
+        "name": "Реставрація — літнє взуття",
+        "unit": "пара",
+        "price": 1600,
+        "approx": true
+      },
+      {
+        "name": "Реставрація — низьке взуття",
+        "unit": "пара",
+        "price": 2000,
+        "approx": true
+      },
+      {
+        "name": "Реставрація — середнє взуття",
+        "unit": "пара",
+        "price": 2200,
+        "approx": true
+      },
+      {
+        "name": "Реставрація — високі чоботи",
+        "unit": "пара",
+        "price": 3200,
+        "approx": true
+      },
+      {
+        "name": "Реставрація — UGG та хутряне",
+        "unit": "пара",
+        "price": 2400,
+        "approx": true
+      },
+      {
+        "name": "Реставрація носочної частини взуття",
+        "unit": "пара",
+        "price": 1200,
+        "approx": true
+      },
+      {
+        "name": "Реставрація каблуків (гладка шкіра)",
+        "unit": "пара",
+        "price": 900,
+        "approx": true
+      },
+      {
+        "name": "Реставрація каблуків (лакова шкіра)",
+        "unit": "пара",
+        "price": 1200,
+        "approx": true
+      },
+      {
+        "name": "Реставрація устілок — відкрите літнє взуття",
+        "unit": "пара",
+        "price": 1200,
+        "approx": true
+      },
+      {
+        "name": "Усунення пошкоджень верху взуття",
+        "unit": "1 место",
+        "price": 1000,
+        "approx": true
+      }
+    ],
+    "heels": [
+      {
+        "name": "Набійки листові",
+        "unit": "пара",
+        "price": 700,
+        "approx": false
+      },
+      {
+        "name": "Набійки формовані",
+        "unit": "пара",
+        "price": 850,
+        "approx": false
+      },
+      {
+        "name": "Набійки штифтові поліуретанові",
+        "unit": "пара",
+        "price": 550,
+        "approx": false
+      },
+      {
+        "name": "Набійки металеві",
+        "unit": "пара",
+        "price": 700,
+        "approx": false
+      },
+      {
+        "name": "Нарощування каблуків",
+        "unit": "пара",
+        "price": 400,
+        "approx": false
+      },
+      {
+        "name": "Вирівнювання каблука під набійку",
+        "unit": "пара",
+        "price": 250,
+        "approx": false
+      },
+      {
+        "name": "Демонтаж металевого штифта",
+        "unit": "пара",
+        "price": 250,
+        "approx": false
+      },
+      {
+        "name": "Заміна каблуків без обтяжки",
+        "unit": "пара",
+        "price": 1800,
+        "approx": false
+      },
+      {
+        "name": "Заміна каблуків з обтяжкою шкірою",
+        "unit": "пара",
+        "price": 2600,
+        "approx": false
+      },
+      {
+        "name": "Заміна обтяжки каблуків — нова набійка включена",
+        "unit": "пара",
+        "price": 2400,
+        "approx": false
+      },
+      {
+        "name": "Заміна обтяжки танкетки",
+        "unit": "пара",
+        "price": 2600,
+        "approx": false
+      },
+      {
+        "name": "Закріплення каблука",
+        "unit": "1 шт.",
+        "price": 400,
+        "approx": false
+      }
+    ],
+    "sole": [
+      {
+        "name": "Профілактика жіноча",
+        "unit": "пара",
+        "price": 1200,
+        "approx": false
+      },
+      {
+        "name": "Профілактика чоловіча",
+        "unit": "пара",
+        "price": 1200,
+        "approx": false
+      },
+      {
+        "name": "Профілактика жіноча комбінована",
+        "unit": "пара",
+        "price": 1500,
+        "approx": false
+      },
+      {
+        "name": "Профілактика на всю площу підошви",
+        "unit": "пара",
+        "price": 1400,
+        "approx": false
+      },
+      {
+        "name": "Профілактика повний слід спортивного взуття",
+        "unit": "пара",
+        "price": 1800,
+        "approx": false
+      },
+      {
+        "name": "Нарощування носочної частини підошви",
+        "unit": "пара",
+        "price": 400,
+        "approx": false
+      },
+      {
+        "name": "Полірування ранта взуття",
+        "unit": "пара",
+        "price": 400,
+        "approx": false
+      },
+      {
+        "name": "Локальна підклейка",
+        "unit": "1 место",
+        "price": 300,
+        "approx": false
+      },
+      {
+        "name": "Підклейка підошви по периметру",
+        "unit": "пара",
+        "price": 600,
+        "approx": false
+      },
+      {
+        "name": "Переклейка підошви / сліду",
+        "unit": "пара",
+        "price": 900,
+        "approx": false
+      },
+      {
+        "name": "Переклейка + прошивка підошви",
+        "unit": "пара",
+        "price": 1400,
+        "approx": false
+      },
+      {
+        "name": "Підклейка / переклейка устілок",
+        "unit": "пара",
+        "price": 400,
+        "approx": false
+      },
+      {
+        "name": "Прошивка підошви",
+        "unit": "пара",
+        "price": 800,
+        "approx": false
+      },
+      {
+        "name": "Прошивка підошви сегментами",
+        "unit": "пара",
+        "price": 600,
+        "approx": false
+      },
+      {
+        "name": "Виготовлення та заміна основних устілок із картону",
+        "unit": "пара",
+        "price": 700,
+        "approx": false
+      },
+      {
+        "name": "Перетяжка основних устілок — відкрите взуття",
+        "unit": "пара",
+        "price": 2600,
+        "approx": false
+      },
+      {
+        "name": "Перетяжка устілок у носочній частині — відкрите взуття",
+        "unit": "пара",
+        "price": 1600,
+        "approx": false
+      },
+      {
+        "name": "Тиснення брендового лого на устілці",
+        "unit": "пара",
+        "price": 600,
+        "approx": false
+      },
+      {
+        "name": "Заміна задників взуття",
+        "unit": "пара",
+        "price": 900,
+        "approx": false
+      },
+      {
+        "name": "Заміна задників з розбором підошви",
+        "unit": "пара",
+        "price": 1300,
+        "approx": false
+      },
+      {
+        "name": "Заміна гумової підошви",
+        "unit": "пара",
+        "price": 2400,
+        "approx": false
+      },
+      {
+        "name": "Заміна підошви кожволон",
+        "unit": "пара",
+        "price": 3000,
+        "approx": false
+      },
+      {
+        "name": "Заміна шкіряної підошви — клейовий метод",
+        "unit": "пара",
+        "price": 4000,
+        "approx": false
+      },
+      {
+        "name": "Заміна шкіряної підошви — прошивний метод",
+        "unit": "пара",
+        "price": 6000,
+        "approx": false
+      },
+      {
+        "name": "Заміна підошви Loro Piana",
+        "unit": "пара",
+        "price": 4000,
+        "approx": false
+      },
+      {
+        "name": "Заміна підошви Golden Goose",
+        "unit": "пара",
+        "price": 4000,
+        "approx": false
+      },
+      {
+        "name": "Заміна супінатора",
+        "unit": "1 шт.",
+        "price": 600,
+        "approx": false
+      }
+    ],
+    "sewing": [
+      {
+        "name": "Відновлення машинної строчки (одне місце)",
+        "unit": "1 место",
+        "price": 300,
+        "approx": false
+      },
+      {
+        "name": "Відновлення ручної строчки (одне місце)",
+        "unit": "1 место",
+        "price": 500,
+        "approx": false
+      },
+      {
+        "name": "Виготовлення та заміна шкіряних устілок — закрите взуття",
+        "unit": "пара",
+        "price": 900,
+        "approx": false
+      },
+      {
+        "name": "Виготовлення та заміна шкіряних устілок — відкрите взуття",
+        "unit": "пара",
+        "price": 900,
+        "approx": false
+      },
+      {
+        "name": "Заміна підкладки задника із сітки",
+        "unit": "пара",
+        "price": 1600,
+        "approx": false
+      },
+      {
+        "name": "Заміна підкладки задника Balenciaga",
+        "unit": "пара",
+        "price": 1800,
+        "approx": false
+      },
+      {
+        "name": "Заміна кармана задника зі шкіри",
+        "unit": "пара",
+        "price": 1300,
+        "approx": false
+      },
+      {
+        "name": "Заміна підкладки задника зі шкіри",
+        "unit": "пара",
+        "price": 2000,
+        "approx": false
+      },
+      {
+        "name": "Внутрішня латка",
+        "unit": "1 шт.",
+        "price": 450,
+        "approx": false
+      },
+      {
+        "name": "Декоративна латка",
+        "unit": "1 шт.",
+        "price": 600,
+        "approx": false
+      },
+      {
+        "name": "Виготовлення та заміна нової деталі взуття",
+        "unit": "1 шт.",
+        "price": 700,
+        "approx": false
+      },
+      {
+        "name": "Заміна союзки у кросівках",
+        "unit": "пара",
+        "price": 1600,
+        "approx": false
+      },
+      {
+        "name": "Внутрішня латка у носочній частині кросівок",
+        "unit": "1 шт.",
+        "price": 400,
+        "approx": false
+      },
+      {
+        "name": "Заміна деталей верху у босоніжках",
+        "unit": "пара",
+        "price": 2800,
+        "approx": false
+      },
+      {
+        "name": "Ушивання халяви — по висоті",
+        "unit": "пара",
+        "price": 1600,
+        "approx": false
+      },
+      {
+        "name": "Ушивання халяви — по ширині",
+        "unit": "пара",
+        "price": 2000,
+        "approx": false
+      },
+      {
+        "name": "Заміна резинок з обтяжкою шкірою",
+        "unit": "пара",
+        "price": 900,
+        "approx": false
+      },
+      {
+        "name": "Заміна резинок на пряжках взуття",
+        "unit": "пара",
+        "price": 500,
+        "approx": false
+      },
+      {
+        "name": "Заміна взуттєвої резинки в халяві",
+        "unit": "1 шт.",
+        "price": 500,
+        "approx": false
+      },
+      {
+        "name": "Вшивання резинок в халяву",
+        "unit": "пара",
+        "price": 1600,
+        "approx": false
+      },
+      {
+        "name": "Заміна липучок",
+        "unit": "пара",
+        "price": 550,
+        "approx": false
+      },
+      {
+        "name": "Виготовлення та заміна ремінців взуття",
+        "unit": "пара",
+        "price": 1600,
+        "approx": false
+      }
+    ],
+    "zippers": [
+      {
+        "name": "Заміна блискавки до 20 см (без вартості матеріалу)",
+        "unit": "1 шт.",
+        "price": 700,
+        "approx": false
+      },
+      {
+        "name": "Заміна блискавки від 21 см (без вартості матеріалу)",
+        "unit": "1 шт.",
+        "price": 900,
+        "approx": false
+      },
+      {
+        "name": "Заміна бігунка блискавки",
+        "unit": "1 шт.",
+        "price": 300,
+        "approx": false
+      },
+      {
+        "name": "Врізання блискавки у халяву (без вартості матеріалу)",
+        "unit": "пара",
+        "price": 2200,
+        "approx": false
+      }
+    ],
+    "stretch": [
+      {
+        "name": "Розтяжка взуття у підйомі / ширина",
+        "unit": "пара",
+        "price": 600,
+        "approx": false
+      },
+      {
+        "name": "Розтяжка халяви чобіт / черевиків",
+        "unit": "пара",
+        "price": 1000,
+        "approx": false
+      }
+    ],
+    "hardware": [
+      {
+        "name": "Заміна гачків + резинка",
+        "unit": "пара",
+        "price": 500,
+        "approx": false
+      },
+      {
+        "name": "Заміна пряжки (без вартості матеріалу)",
+        "unit": "пара",
+        "price": 450,
+        "approx": false
+      },
+      {
+        "name": "Заміна блочка та люверса",
+        "unit": "1 шт.",
+        "price": 200,
+        "approx": false
+      },
+      {
+        "name": "Заміна кнопки (без розбору виробу)",
+        "unit": "1 шт.",
+        "price": 200,
+        "approx": false
+      }
+    ]
+  },
+  "bags": {
+    "cleaning": [
+      {
+        "name": "Чистка — шкіряна сумка S",
+        "unit": "1 шт.",
+        "price": 1400,
+        "approx": false
+      },
+      {
+        "name": "Чистка — шкіряна сумка M",
+        "unit": "1 шт.",
+        "price": 1600,
+        "approx": false
+      },
+      {
+        "name": "Чистка — шкіряна сумка L",
+        "unit": "1 шт.",
+        "price": 1800,
+        "approx": false
+      },
+      {
+        "name": "Чистка — текстильна сумка S",
+        "unit": "1 шт.",
+        "price": 1400,
+        "approx": false
+      },
+      {
+        "name": "Чистка — текстильна сумка M",
+        "unit": "1 шт.",
+        "price": 1600,
+        "approx": false
+      },
+      {
+        "name": "Чистка — текстильна сумка L",
+        "unit": "1 шт.",
+        "price": 1800,
+        "approx": false
+      }
+    ],
+    "painting": [
+      {
+        "name": "Фарбування — шкіряна сумка S",
+        "unit": "1 шт.",
+        "price": 1800,
+        "approx": false
+      },
+      {
+        "name": "Фарбування — шкіряна сумка M",
+        "unit": "1 шт.",
+        "price": 2200,
+        "approx": false
+      },
+      {
+        "name": "Фарбування — шкіряна сумка L",
+        "unit": "1 шт.",
+        "price": 2600,
+        "approx": false
+      },
+      {
+        "name": "Фарбування — поясний ремінь",
+        "unit": "1 шт.",
+        "price": 1400,
+        "approx": false
+      },
+      {
+        "name": "Реставрація — шкіряна сумка S",
+        "unit": "1 шт.",
+        "price": 2200,
+        "approx": true
+      },
+      {
+        "name": "Реставрація — шкіряна сумка M",
+        "unit": "1 шт.",
+        "price": 2700,
+        "approx": true
+      },
+      {
+        "name": "Реставрація — шкіряна сумка L",
+        "unit": "1 шт.",
+        "price": 3200,
+        "approx": true
+      },
+      {
+        "name": "Локальна реставрація шкіри сумки",
+        "unit": "1 место",
+        "price": 1000,
+        "approx": true
+      },
+      {
+        "name": "Реставрація кутиків сумки",
+        "unit": "1 место",
+        "price": 450,
+        "approx": true
+      },
+      {
+        "name": "Реставрация ручок сумки",
+        "unit": "пара",
+        "price": 1600,
+        "approx": true
+      },
+      {
+        "name": "Реставрація плечового ременя сумки",
+        "unit": "1 шт.",
+        "price": 1600,
+        "approx": true
+      }
+    ],
+    "edges": [
+      {
+        "name": "Торцювання урізу шкіри",
+        "unit": "1 см",
+        "price": 12,
+        "approx": false
+      },
+      {
+        "name": "Торцювання ручок сумки (2 сторони)",
+        "unit": "пара",
+        "price": 1200,
+        "approx": false
+      },
+      {
+        "name": "Торцювання ручок сумки (4 сторони)",
+        "unit": "пара",
+        "price": 1400,
+        "approx": false
+      },
+      {
+        "name": "Торцювання плечового ременя сумки",
+        "unit": "1 шт.",
+        "price": 1400,
+        "approx": false
+      },
+      {
+        "name": "Торцювання тренчика / пулера / тримача ручок",
+        "unit": "1 шт.",
+        "price": 400,
+        "approx": false
+      }
+    ],
+    "sewing": [
+      {
+        "name": "Відновлення машинного шва сумки",
+        "unit": "1 место",
+        "price": 300,
+        "approx": false
+      },
+      {
+        "name": "Підклейка шкіри / деталі сумки",
+        "unit": "1 место",
+        "price": 300,
+        "approx": false
+      },
+      {
+        "name": "Ремонт кріплення ручок сумки (без заміни деталей)",
+        "unit": "1 шт.",
+        "price": 450,
+        "approx": false
+      },
+      {
+        "name": "Виготовлення шкіряного пулера на бігунок",
+        "unit": "1 шт.",
+        "price": 500,
+        "approx": false
+      },
+      {
+        "name": "Виготовлення та заміна тренчика сумки",
+        "unit": "1 шт.",
+        "price": 500,
+        "approx": false
+      },
+      {
+        "name": "Виготовлення та перешивання деталей сумки",
+        "unit": "1 шт.",
+        "price": 900,
+        "approx": false
+      },
+      {
+        "name": "Виготовлення та заміна настрочних кріплень ручок сумки",
+        "unit": "1 шт.",
+        "price": 600,
+        "approx": false
+      },
+      {
+        "name": "Виготовлення та заміна втачних кріплень ручок сумки",
+        "unit": "1 шт.",
+        "price": 400,
+        "approx": false
+      },
+      {
+        "name": "Заміна канту у гаманці / клатчі",
+        "unit": "1 шт.",
+        "price": 1200,
+        "approx": false
+      },
+      {
+        "name": "Заміна окантовки сумки — кедер",
+        "unit": "1 шт.",
+        "price": 1200,
+        "approx": false
+      }
+    ],
+    "hardware": [
+      {
+        "name": "Заміна карабіна сумки (без вартості матеріалу)",
+        "unit": "1 шт.",
+        "price": 250,
+        "approx": false
+      },
+      {
+        "name": "Заміна пряжки ременя сумки (без вартості матеріалу)",
+        "unit": "1 шт.",
+        "price": 250,
+        "approx": false
+      },
+      {
+        "name": "Заміна кнопки / заклепки / люверса сумки",
+        "unit": "1 шт.",
+        "price": 200,
+        "approx": false
+      },
+      {
+        "name": "Заміна магніту сумки (без вартості матеріалу)",
+        "unit": "1 шт.",
+        "price": 500,
+        "approx": false
+      },
+      {
+        "name": "Встановлення декоративної латки",
+        "unit": "1 шт.",
+        "price": 900,
+        "approx": false
+      },
+      {
+        "name": "Встановлення внутрішньої латки",
+        "unit": "1 шт.",
+        "price": 450,
+        "approx": false
+      },
+      {
+        "name": "Встановлення кільця / напівкільця (без вартості матеріалу)",
+        "unit": "1 шт.",
+        "price": 250,
+        "approx": false
+      }
+    ],
+    "zippers": [
+      {
+        "name": "Заміна блискавки сумки до 25 см (без вартості матеріалу)",
+        "unit": "1 шт.",
+        "price": 1400,
+        "approx": false
+      },
+      {
+        "name": "Заміна блискавки сумки від 25 см (без вартості матеріалу)",
+        "unit": "1 шт.",
+        "price": 1600,
+        "approx": false
+      },
+      {
+        "name": "Заміна блискавки у гаманці / органайзері (без вартості матеріалу)",
+        "unit": "1 шт.",
+        "price": 1800,
+        "approx": false
+      },
+      {
+        "name": "Заміна блискавки рюкзака / великої сумки (без вартості матеріалу)",
+        "unit": "1 шт.",
+        "price": 1600,
+        "approx": false
+      },
+      {
+        "name": "Заміна бігунка блискавки сумки",
+        "unit": "1 шт.",
+        "price": 300,
+        "approx": false
+      }
+    ],
+    "handles": [
+      {
+        "name": "Вкорочення плечового ременя сумки",
+        "unit": "1 шт.",
+        "price": 450,
+        "approx": false
+      },
+      {
+        "name": "Заміна плечового ременя сумки з підбором шкіри",
+        "unit": "1 шт.",
+        "price": 2000,
+        "approx": false
+      },
+      {
+        "name": "Заміна ручок сумки типу шопер",
+        "unit": "пара",
+        "price": 1600,
+        "approx": false
+      },
+      {
+        "name": "Заміна ручок шкіряної сумки з підбором шкіри",
+        "unit": "пара",
+        "price": 2800,
+        "approx": false
+      },
+      {
+        "name": "Заміна ручок рюкзака з наповнювачем",
+        "unit": "пара",
+        "price": 3200,
+        "approx": false
+      },
+      {
+        "name": "Пробивання отворів в плечовому ремені",
+        "unit": "1 шт.",
+        "price": 200,
+        "approx": false
+      }
+    ],
+    "lining": [
+      {
+        "name": "Заміна підкладки — сумка S",
+        "unit": "1 шт.",
+        "price": 1800,
+        "approx": false
+      },
+      {
+        "name": "Заміна підкладки — сумка M",
+        "unit": "1 шт.",
+        "price": 2200,
+        "approx": false
+      },
+      {
+        "name": "Заміна підкладки — сумка L",
+        "unit": "1 шт.",
+        "price": 2600,
+        "approx": false
+      },
+      {
+        "name": "Заміна підкладки — гаманець / органайзер",
+        "unit": "1 шт.",
+        "price": 2600,
+        "approx": false
+      }
+    ],
+    "belt": [
+      {
+        "name": "Пробивання отворів",
+        "unit": "1 шт.",
+        "price": 200,
+        "approx": false
+      },
+      {
+        "name": "Вкорочення шкіряного поясного ременя",
+        "unit": "1 шт.",
+        "price": 450,
+        "approx": false
+      },
+      {
+        "name": "Вкорочення поясного ременя з перешиванням пряжки",
+        "unit": "1 шт.",
+        "price": 600,
+        "approx": false
+      },
+      {
+        "name": "Заміна підкладу поясного ременя",
+        "unit": "1 шт.",
+        "price": 2000,
+        "approx": false
+      },
+      {
+        "name": "Реставрація поясного ременя (проклейка, прошивка)",
+        "unit": "1 шт.",
+        "price": 800,
+        "approx": false
+      }
+    ]
+  }
+};
+
+const DEPT_NAMES = {"cleaning": "Чистка / Базовий догляд", "painting": "Фарбування / Реставрація", "heels": "Каблуки та набійки", "sole": "Підошва", "sewing": "Швейні роботи та деталі", "zippers": "Блискавки", "stretch": "Розтяжка", "hardware": "Фурнітура", "edges": "Реставрація урізів", "handles": "Ручки та ремінь", "lining": "Підкладка", "belt": "Поясний ремінь"};
+
+const SHOES_DEPTS = ["cleaning", "painting", "heels", "sole", "sewing", "zippers", "stretch", "hardware"];
+const BAGS_DEPTS = ["cleaning", "painting", "edges", "sewing", "hardware", "zippers", "handles", "lining", "belt"];
+
+
+let currentCat = 'shoes';
+let currentDept = 'all';
+
+function setCategory(cat, btn) {
+  currentCat = cat;
+  currentDept = 'all';
+  document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('search').value = '';
+  renderDeptFilters();
   render();
-});
+}
+
+function setDept(dept, btn) {
+  currentDept = dept;
+  document.querySelectorAll('.df').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  render();
+}
+
+function renderDeptFilters() {
+  const depts = currentCat === 'shoes' ? SHOES_DEPTS : BAGS_DEPTS;
+  const el = document.getElementById('dept-filters');
+  el.innerHTML = '';
+  const all = document.createElement('button');
+  all.className = 'df active';
+  all.textContent = 'Усі';
+  all.onclick = () => setDept('all', all);
+  el.appendChild(all);
+  depts.forEach(d => {
+    const btn = document.createElement('button');
+    btn.className = 'df';
+    btn.textContent = DEPT_NAMES[d] || d;
+    btn.onclick = () => setDept(d, btn);
+    el.appendChild(btn);
+  });
+}
+
+function render() {
+  const q = document.getElementById('search').value.toLowerCase();
+  const cat = SERVICES[currentCat] || {};
+  const depts = currentCat === 'shoes' ? SHOES_DEPTS : BAGS_DEPTS;
+  
+  let items = [];
+  depts.forEach(dept => {
+    if (currentDept !== 'all' && dept !== currentDept) return;
+    (cat[dept] || []).forEach(item => {
+      if (!q || item.name.toLowerCase().includes(q)) {
+        items.push({...item, dept});
+      }
+    });
+  });
+
+  const el = document.getElementById('cards');
+  const count = document.getElementById('results-count');
+  
+  count.textContent = items.length + ' послуг';
+
+  if (!items.length) {
+    el.innerHTML = '<div class="empty">Нічого не знайдено</div>';
+    return;
+  }
+
+  el.innerHTML = items.map(function(item) {
+    const priceStr = (item.approx ? "від " : "") + item.price.toLocaleString("uk-UA") + " ₴";
+    const approxBadge = item.approx ? "<div class=\"card-approx\">уточнюється після огляду</div>" : "";
+    return "<div class=\"card\">" +
+      "<div class=\"card-name\">" + item.name + "</div>" +
+      approxBadge +
+      "<div class=\"card-footer\">" +
+        "<span class=\"card-price\">" + priceStr + "</span>" +
+        "<span class=\"card-unit\">" + item.unit + "</span>" +
+      "</div></div>";
+  }).join("");
+}
+
+renderDeptFilters();
 render();
 </script>
-
-</body></html>
+</body>
+</html>
