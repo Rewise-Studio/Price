@@ -1165,8 +1165,56 @@ function render() {
   }).join("");
 }
 
-renderDeptFilters();
-render();
+async function loadFromSheet() {
+  try {
+    const url = "https://docs.google.com/spreadsheets/d/1kDJ893PFa_DTNKt-r8wQES_JFXbJSDNU8niRLz70Aao/gviz/tq?tqx=out:json&sheet=%D0%9F%D1%80%D0%B0%D0%B9%D1%81";
+    const res = await fetch(url);
+    const text = await res.text();
+    const json = JSON.parse(text.replace(/^.*?({.*}).*$/s, "$1"));
+    if (!json.table || !json.table.rows) return;
+    
+    const newServices = {shoes:{}, bags:{}};
+    const newDeptNames = {};
+    const shoesDepts = [];
+    const bagsDepts = [];
+    
+    json.table.rows.forEach(row => {
+      if (!row.c || !row.c[0] || !row.c[0].v) return;
+      const cat = String(row.c[0].v).trim();
+      const deptId = row.c[1] ? String(row.c[1].v || "").trim() : "";
+      const deptName = row.c[2] ? String(row.c[2].v || "").trim() : "";
+      const name = row.c[3] ? String(row.c[3].v || "").trim() : "";
+      const unit = row.c[4] ? String(row.c[4].v || "").trim() : "";
+      const price = row.c[5] ? (parseInt(row.c[5].v) || 0) : 0;
+      const approx = row.c[6] ? String(row.c[6].v).trim() === "1" : false;
+      
+      if (!cat || !deptId || !name || (cat !== "shoes" && cat !== "bags")) return;
+      
+      if (!newServices[cat][deptId]) {
+        newServices[cat][deptId] = [];
+        newDeptNames[deptId] = deptName;
+        if (cat === "shoes" && !shoesDepts.includes(deptId)) shoesDepts.push(deptId);
+        if (cat === "bags" && !bagsDepts.includes(deptId)) bagsDepts.push(deptId);
+      }
+      newServices[cat][deptId].push({name, unit, price, approx});
+    });
+    
+    if (Object.keys(newServices.shoes).length > 0 || Object.keys(newServices.bags).length > 0) {
+      Object.assign(SERVICES.shoes, newServices.shoes);
+      Object.assign(SERVICES.bags, newServices.bags);
+      Object.assign(DEPT_NAMES, newDeptNames);
+      if (shoesDepts.length) SHOES_DEPTS.splice(0, SHOES_DEPTS.length, ...shoesDepts);
+      if (bagsDepts.length) BAGS_DEPTS.splice(0, BAGS_DEPTS.length, ...bagsDepts);
+    }
+  } catch(e) {
+    console.log("Using built-in price data");
+  }
+}
+
+loadFromSheet().then(() => {
+  renderDeptFilters();
+  render();
+});
 </script>
 </body>
 </html>
