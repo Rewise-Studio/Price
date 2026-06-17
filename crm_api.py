@@ -38,7 +38,7 @@ def create_order():
     # CORS headers
     if request.method == "OPTIONS":
         response = app.make_default_options_response()
-        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Origin"] = "https://rewise-studio.github.io"
         response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
         response.headers["Access-Control-Allow-Headers"] = "Content-Type"
         return response
@@ -80,20 +80,20 @@ def create_order():
             ])
 
         response = jsonify({"status": "ok", "order_num": order_num})
-        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Origin"] = "https://rewise-studio.github.io"
         return response
 
     except Exception as e:
         logger.error(f"Error creating order: {e}")
         response = jsonify({"status": "error", "message": str(e)})
-        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Origin"] = "https://rewise-studio.github.io"
         return response, 500
 
 @app.route("/status", methods=["POST", "OPTIONS"])
 def update_status():
     if request.method == "OPTIONS":
         response = app.make_default_options_response()
-        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Origin"] = "https://rewise-studio.github.io"
         response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
         response.headers["Access-Control-Allow-Headers"] = "Content-Type"
         return response
@@ -127,12 +127,12 @@ def update_status():
                     ws_orders.update_cell(i + 1, 8, "📦 Виданий")
                     break
         response = jsonify({"status": "ok"})
-        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Origin"] = "https://rewise-studio.github.io"
         return response
     except Exception as e:
         logger.error(f"Error updating status: {e}")
         response = jsonify({"status": "error", "message": str(e)})
-        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Origin"] = "https://rewise-studio.github.io"
         return response, 500
 
 
@@ -140,7 +140,7 @@ def update_status():
 def update_note():
     if request.method == "OPTIONS":
         response = app.make_default_options_response()
-        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Origin"] = "https://rewise-studio.github.io"
         response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
         response.headers["Access-Control-Allow-Headers"] = "Content-Type"
         return response
@@ -157,11 +157,11 @@ def update_note():
                 ws.update_cell(i + 1, 9, note)
                 break
         response = jsonify({"status": "ok"})
-        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Origin"] = "https://rewise-studio.github.io"
         return response
     except Exception as e:
         response = jsonify({"status": "error", "message": str(e)})
-        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Origin"] = "https://rewise-studio.github.io"
         return response, 500
 
 
