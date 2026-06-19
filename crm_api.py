@@ -245,6 +245,7 @@ def save_economics():
             data.get("totalCost", ""),
             data.get("margin", ""),
             data.get("marginPct", ""),
+            data.get("usdRate", ""),
             now_str,
         ]
 
@@ -256,7 +257,7 @@ def save_economics():
         updated = False
         for i, row in enumerate(all_rows):
             if len(row) > 0 and row[0].strip().lower() == service.lower():
-                ws.update(f"A{i + 1}:L{i + 1}", [row_data])
+                ws.update(f"A{i + 1}:M{i + 1}", [row_data])
                 updated = True
                 break
         if not updated:
