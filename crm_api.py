@@ -13,12 +13,14 @@ SHEET_ID = os.environ.get("GOOGLE_SHEET_ID", "")
 
 app = Flask(__name__)
 
+
 def get_sheets_client():
     creds_json = os.environ.get("GOOGLE_CREDENTIALS", "")
     creds_dict = json.loads(creds_json)
     scopes = ["https://www.googleapis.com/auth/spreadsheets"]
     creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
     return gspread.authorize(creds)
+
 
 def get_next_order_num():
     client = get_sheets_client()
@@ -29,23 +31,25 @@ def get_next_order_num():
     ws.update_cell(2, 2, next_num)
     return f"RW-{next_num:04d}"
 
+
 @app.route("/", methods=["GET"])
 def index():
     return jsonify({"status": "ok", "service": "Rewise CRM API"})
+
 
 @app.route("/order", methods=["POST", "OPTIONS"])
 def create_order():
     # CORS headers
     if request.method == "OPTIONS":
         response = app.make_default_options_response()
-        response.headers["Access-Control-Allow-Origin"] = "https://rewise-studio.github.io"
+        response.headers["Access-Control-Allow-Origin"] = "*"
         response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
         response.headers["Access-Control-Allow-Headers"] = "Content-Type"
         return response
-
     try:
         data = request.get_json()
         order_num = get_next_order_num()
+
         client = get_sheets_client()
         sh = client.open_by_key(SHEET_ID)
 
@@ -80,20 +84,20 @@ def create_order():
             ])
 
         response = jsonify({"status": "ok", "order_num": order_num})
-        response.headers["Access-Control-Allow-Origin"] = "https://rewise-studio.github.io"
+        response.headers["Access-Control-Allow-Origin"] = "*"
         return response
-
     except Exception as e:
         logger.error(f"Error creating order: {e}")
         response = jsonify({"status": "error", "message": str(e)})
-        response.headers["Access-Control-Allow-Origin"] = "https://rewise-studio.github.io"
+        response.headers["Access-Control-Allow-Origin"] = "*"
         return response, 500
+
 
 @app.route("/status", methods=["POST", "OPTIONS"])
 def update_status():
     if request.method == "OPTIONS":
         response = app.make_default_options_response()
-        response.headers["Access-Control-Allow-Origin"] = "https://rewise-studio.github.io"
+        response.headers["Access-Control-Allow-Origin"] = "*"
         response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
         response.headers["Access-Control-Allow-Headers"] = "Content-Type"
         return response
@@ -101,11 +105,13 @@ def update_status():
         data = request.get_json()
         item_num = data.get("item_num", "")
         status = data.get("status", "")
+
         client = get_sheets_client()
         sh = client.open_by_key(SHEET_ID)
         ws = sh.worksheet("Вироби")
         all_rows = ws.get_all_values()
         now_str = datetime.now().strftime("%d.%m.%Y %H:%M")
+
         for i, row in enumerate(all_rows):
             if len(row) > 1 and row[1] == item_num:
                 ws.update_cell(i + 1, 7, status)
@@ -116,6 +122,7 @@ def update_status():
                 elif status == "📦 Виданий":
                     ws.update_cell(i + 1, 11, now_str)
                 break
+
         # Check if all items issued — update order status
         order_num = item_num.rsplit("-", 1)[0]
         all_items = [r for r in all_rows[1:] if len(r) > 1 and r[0] == order_num]
@@ -126,13 +133,14 @@ def update_status():
                 if len(row) > 0 and row[0] == order_num:
                     ws_orders.update_cell(i + 1, 8, "📦 Виданий")
                     break
+
         response = jsonify({"status": "ok"})
-        response.headers["Access-Control-Allow-Origin"] = "https://rewise-studio.github.io"
+        response.headers["Access-Control-Allow-Origin"] = "*"
         return response
     except Exception as e:
         logger.error(f"Error updating status: {e}")
         response = jsonify({"status": "error", "message": str(e)})
-        response.headers["Access-Control-Allow-Origin"] = "https://rewise-studio.github.io"
+        response.headers["Access-Control-Allow-Origin"] = "*"
         return response, 500
 
 
@@ -140,7 +148,7 @@ def update_status():
 def update_note():
     if request.method == "OPTIONS":
         response = app.make_default_options_response()
-        response.headers["Access-Control-Allow-Origin"] = "https://rewise-studio.github.io"
+        response.headers["Access-Control-Allow-Origin"] = "*"
         response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
         response.headers["Access-Control-Allow-Headers"] = "Content-Type"
         return response
@@ -148,128 +156,168 @@ def update_note():
         data = request.get_json()
         order_num = data.get("order_num", "")
         note = data.get("note", "")
+
         client = get_sheets_client()
         sh = client.open_by_key(SHEET_ID)
         ws = sh.worksheet("Замовлення")
         all_rows = ws.get_all_values()
+
         for i, row in enumerate(all_rows):
             if len(row) > 0 and row[0] == order_num:
                 ws.update_cell(i + 1, 9, note)
                 break
+
         response = jsonify({"status": "ok"})
-        response.headers["Access-Control-Allow-Origin"] = "https://rewise-studio.github.io"
+        response.headers["Access-Control-Allow-Origin"] = "*"
         return response
     except Exception as e:
         response = jsonify({"status": "error", "message": str(e)})
-        response.headers["Access-Control-Allow-Origin"] = "https://rewise-studio.github.io"
+        response.headers["Access-Control-Allow-Origin"] = "*"
         return response, 500
 
+
+# ══════════════════════════════════════════════════════════════════════
+#  МАТЕРІАЛИ
+#  Лист "Матеріали":
+#  A Назва | B Розмір упаковки | C Одиниця | D Ціна упаковки ₴ |
+#  E Курс покупки | F Ціна упаковки $ | G Ціна за од. $ | H Постачальник | I Оновлено
+# ══════════════════════════════════════════════════════════════════════
 
 @app.route("/material", methods=["POST", "OPTIONS"])
 def save_material():
     if request.method == "OPTIONS":
         response = app.make_default_options_response()
-        response.headers["Access-Control-Allow-Origin"] = "https://rewise-studio.github.io"
+        response.headers["Access-Control-Allow-Origin"] = "*"
         response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
         response.headers["Access-Control-Allow-Headers"] = "Content-Type"
         return response
     try:
         data = request.get_json()
-        name = (data.get("name") or "").strip()
-        if not name:
-            response = jsonify({"status": "error", "message": "Назва матеріалу обов'язкова"})
-            response.headers["Access-Control-Allow-Origin"] = "https://rewise-studio.github.io"
-            return response, 400
+        name = data.get("name", "").strip()
+        pack_size = float(data.get("packSize", 0) or 0)
+        unit = data.get("unit", "")
+        pack_price_uah = float(data.get("packPriceUah", 0) or 0)
+        buy_rate = float(data.get("buyRate", 0) or 0)
+        supplier = data.get("supplier", "")
 
+        # Розрахунок доларових цін
+        pack_price_usd = round(pack_price_uah / buy_rate, 4) if buy_rate else 0
+        unit_price_usd = round(pack_price_usd / pack_size, 6) if pack_size else 0
+
+        client = get_sheets_client()
+        sh = client.open_by_key(SHEET_ID)
+        ws = sh.worksheet("Матеріали")
         now_str = datetime.now().strftime("%d.%m.%Y %H:%M")
-        row_data = [
-            name,
-            data.get("packSize", ""),
-            data.get("unit", ""),
-            data.get("packPrice", ""),
-            data.get("unitPrice", ""),
-            data.get("supplier", ""),
-            now_str,
+
+        row_values = [
+            name, pack_size, unit, pack_price_uah,
+            buy_rate, pack_price_usd, unit_price_usd, supplier, now_str
         ]
+
+        # Якщо матеріал з такою назвою вже є — оновлюємо, інакше додаємо
+        all_rows = ws.get_all_values()
+        found = False
+        for i, row in enumerate(all_rows):
+            if i == 0:
+                continue  # заголовок
+            if len(row) > 0 and row[0].strip() == name:
+                for col, val in enumerate(row_values, start=1):
+                    ws.update_cell(i + 1, col, val)
+                found = True
+                break
+        if not found:
+            ws.append_row(row_values)
+
+        response = jsonify({"status": "ok"})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response
+    except Exception as e:
+        logger.error(f"Error saving material: {e}")
+        response = jsonify({"status": "error", "message": str(e)})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response, 500
+
+
+@app.route("/material/delete", methods=["POST", "OPTIONS"])
+def delete_material():
+    if request.method == "OPTIONS":
+        response = app.make_default_options_response()
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+    try:
+        data = request.get_json()
+        name = data.get("name", "").strip()
 
         client = get_sheets_client()
         sh = client.open_by_key(SHEET_ID)
         ws = sh.worksheet("Матеріали")
         all_rows = ws.get_all_values()
 
-        updated = False
         for i, row in enumerate(all_rows):
-            if len(row) > 0 and row[0].strip().lower() == name.lower():
-                ws.update(f"A{i + 1}:G{i + 1}", [row_data])
-                updated = True
+            if i == 0:
+                continue
+            if len(row) > 0 and row[0].strip() == name:
+                ws.delete_rows(i + 1)
                 break
-        if not updated:
-            ws.append_row(row_data)
 
-        response = jsonify({"status": "ok", "updated": updated})
-        response.headers["Access-Control-Allow-Origin"] = "https://rewise-studio.github.io"
+        response = jsonify({"status": "ok"})
+        response.headers["Access-Control-Allow-Origin"] = "*"
         return response
     except Exception as e:
-        logger.error(f"Error saving material: {e}")
+        logger.error(f"Error deleting material: {e}")
         response = jsonify({"status": "error", "message": str(e)})
-        response.headers["Access-Control-Allow-Origin"] = "https://rewise-studio.github.io"
+        response.headers["Access-Control-Allow-Origin"] = "*"
         return response, 500
 
+
+# ══════════════════════════════════════════════════════════════════════
+#  ЕКОНОМІКА (збереження розрахунків собівартості)
+#  Лист "Економіка":
+#  A Послуга | B Ціна | C Матеріали(JSON) | D Собів. матеріалів | E Норма-год |
+#  F ₴/год | G Собів. часу | H Накладні | I Повна собів. | J Маржа |
+#  K Маржа % | L Курс $ | M Оновлено
+# ══════════════════════════════════════════════════════════════════════
 
 @app.route("/economics", methods=["POST", "OPTIONS"])
 def save_economics():
     if request.method == "OPTIONS":
         response = app.make_default_options_response()
-        response.headers["Access-Control-Allow-Origin"] = "https://rewise-studio.github.io"
+        response.headers["Access-Control-Allow-Origin"] = "*"
         response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
         response.headers["Access-Control-Allow-Headers"] = "Content-Type"
         return response
     try:
         data = request.get_json()
-        service = (data.get("service") or "").strip()
-        if not service:
-            response = jsonify({"status": "error", "message": "Назва послуги обов'язкова"})
-            response.headers["Access-Control-Allow-Origin"] = "https://rewise-studio.github.io"
-            return response, 400
-
-        now_str = datetime.now().strftime("%d.%m.%Y %H:%M")
-        row_data = [
-            service,
-            data.get("price", ""),
-            json.dumps(data.get("materials", []), ensure_ascii=False),
-            data.get("materialsCost", ""),
-            data.get("normHours", ""),
-            data.get("hourRate", ""),
-            data.get("timeCost", ""),
-            data.get("overhead", ""),
-            data.get("totalCost", ""),
-            data.get("margin", ""),
-            data.get("marginPct", ""),
-            data.get("usdRate", ""),
-            now_str,
-        ]
-
         client = get_sheets_client()
         sh = client.open_by_key(SHEET_ID)
         ws = sh.worksheet("Економіка")
-        all_rows = ws.get_all_values()
+        now_str = datetime.now().strftime("%d.%m.%Y %H:%M")
 
-        updated = False
-        for i, row in enumerate(all_rows):
-            if len(row) > 0 and row[0].strip().lower() == service.lower():
-                ws.update(f"A{i + 1}:M{i + 1}", [row_data])
-                updated = True
-                break
-        if not updated:
-            ws.append_row(row_data)
+        ws.append_row([
+            data.get("service", ""),
+            data.get("price", 0),
+            json.dumps(data.get("materials", []), ensure_ascii=False),
+            data.get("materialsCost", 0),
+            data.get("normHours", 0),
+            data.get("hourRate", 0),
+            data.get("timeCost", 0),
+            data.get("overhead", 0),
+            data.get("totalCost", 0),
+            data.get("margin", 0),
+            data.get("marginPct", 0),
+            data.get("usdRate", 0),
+            now_str
+        ])
 
-        response = jsonify({"status": "ok", "updated": updated})
-        response.headers["Access-Control-Allow-Origin"] = "https://rewise-studio.github.io"
+        response = jsonify({"status": "ok"})
+        response.headers["Access-Control-Allow-Origin"] = "*"
         return response
     except Exception as e:
         logger.error(f"Error saving economics: {e}")
         response = jsonify({"status": "error", "message": str(e)})
-        response.headers["Access-Control-Allow-Origin"] = "https://rewise-studio.github.io"
+        response.headers["Access-Control-Allow-Origin"] = "*"
         return response, 500
 
 
