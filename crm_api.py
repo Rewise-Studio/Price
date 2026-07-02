@@ -321,6 +321,99 @@ def save_economics():
         return response, 500
 
 
+@app.route("/economics/delete", methods=["POST", "OPTIONS"])
+def delete_economics():
+    if request.method == "OPTIONS":
+        response = app.make_default_options_response()
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+    try:
+        data = request.get_json()
+        # Ідентифікуємо рядок за послугою + датою оновлення (унікальна пара)
+        service = data.get("service", "").strip()
+        updated = data.get("updated", "").strip()
+
+        client = get_sheets_client()
+        sh = client.open_by_key(SHEET_ID)
+        ws = sh.worksheet("Економіка")
+        all_rows = ws.get_all_values()
+
+        for i, row in enumerate(all_rows):
+            if i == 0:
+                continue  # заголовок
+            row_service = row[0].strip() if len(row) > 0 else ""
+            row_updated = row[12].strip() if len(row) > 12 else ""
+            if row_service == service and row_updated == updated:
+                ws.delete_rows(i + 1)
+                break
+
+        response = jsonify({"status": "ok"})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response
+    except Exception as e:
+        logger.error(f"Error deleting economics: {e}")
+        response = jsonify({"status": "error", "message": str(e)})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response, 500
+
+
+@app.route("/economics/update", methods=["POST", "OPTIONS"])
+def update_economics():
+    if request.method == "OPTIONS":
+        response = app.make_default_options_response()
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+    try:
+        data = request.get_json()
+        match_service = data.get("matchService", "").strip()
+        match_updated = data.get("matchUpdated", "").strip()
+
+        client = get_sheets_client()
+        sh = client.open_by_key(SHEET_ID)
+        ws = sh.worksheet("Економіка")
+        all_rows = ws.get_all_values()
+        now_str = datetime.now().strftime("%d.%m.%Y %H:%M")
+
+        new_values = [
+            data.get("service", ""),
+            data.get("price", 0),
+            json.dumps(data.get("materials", []), ensure_ascii=False),
+            data.get("materialsCost", 0),
+            data.get("normHours", 0),
+            data.get("hourRate", 0),
+            data.get("timeCost", 0),
+            data.get("overhead", 0),
+            data.get("totalCost", 0),
+            data.get("margin", 0),
+            data.get("marginPct", 0),
+            data.get("usdRate", 0),
+            now_str
+        ]
+
+        for i, row in enumerate(all_rows):
+            if i == 0:
+                continue
+            row_service = row[0].strip() if len(row) > 0 else ""
+            row_updated = row[12].strip() if len(row) > 12 else ""
+            if row_service == match_service and row_updated == match_updated:
+                for col, val in enumerate(new_values, start=1):
+                    ws.update_cell(i + 1, col, val)
+                break
+
+        response = jsonify({"status": "ok"})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response
+    except Exception as e:
+        logger.error(f"Error updating economics: {e}")
+        response = jsonify({"status": "error", "message": str(e)})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response, 500
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
