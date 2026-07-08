@@ -1167,11 +1167,25 @@ function render() {
     return;
   }
 
+  const HINTS = {
+    "літнє взуття":   "сандалі, босоніжки, шльопанці, сабо, мюлі, еспадрильї",
+    "низьке взуття":  "туфлі, лофери, балетки, оксфорди, кросівки, кеді, мокасини",
+    "середнє взуття": "черевики (челсі, дезерти, ботильйони), хайтопи",
+    "високі чоботи":  "чоботи до коліна, ботфорти, берці",
+    "ugg та хутряне": "угги, дутики, хутряне та зимове взуття",
+  };
+
   el.innerHTML = items.map(function(item) {
     const priceStr = (item.approx ? "від " : "") + item.price.toLocaleString("uk-UA") + " ₴";
     const approxBadge = item.approx ? "<div class=\"card-approx\">уточнюється після огляду</div>" : "";
+    const nameLC = item.name.toLowerCase();
+    let hint = "";
+    for (const key in HINTS) {
+      if (nameLC.includes(key)) { hint = HINTS[key]; break; }
+    }
+    const hintHTML = hint ? "<div style='font-size:10px;color:var(--muted);margin-top:2px'>" + hint + "</div>" : "";
     return "<div class=\"card\">" +
-      "<div class=\"card-name\">" + item.name + "</div>" +
+      "<div class=\"card-name\">" + item.name + hintHTML + "</div>" +
       approxBadge +
       "<div class=\"card-footer\">" +
         "<span class=\"card-price\">" + priceStr + "</span>" +
