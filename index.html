@@ -13,10 +13,11 @@
 :root{--umbra:#6B4F3A;--umbra2:#8a6548;--linen:#F5F0EA;--graphite:#2C2C2C;--muted:#8a7f78;--border:#e0d9d3;--bg:#faf8f6;--card:#fff;--surface:#f5f0ea}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--graphite);min-height:100vh}
 
-header{background:var(--umbra);padding:20px;text-align:center}
-.header-brand{font-size:10px;letter-spacing:3px;color:rgba(245,240,234,.6);text-transform:uppercase;margin-bottom:6px}
-.header-title{font-size:22px;font-weight:400;color:var(--linen);margin-bottom:4px}
-.header-sub{font-size:13px;color:rgba(245,240,234,.6)}
+header{background:var(--umbra);padding:0 16px;height:52px;display:flex;align-items:center;position:relative}
+.header-left{display:flex;flex-direction:column;justify-content:center;gap:2px}
+.header-title{font-family:'Tenor Sans',serif;font-size:14px;letter-spacing:0.15em;color:var(--linen);text-transform:uppercase;line-height:1}
+.header-studio{font-size:7.5px;letter-spacing:0.42em;color:#A0845C;text-transform:uppercase;line-height:1;text-align:center}
+.header-sub{position:absolute;left:50%;transform:translateX(-50%);font-size:11px;letter-spacing:0.12em;color:rgba(245,240,234,.6);text-transform:uppercase;white-space:nowrap}
 
 .container{max-width:800px;margin:0 auto;padding:20px}
 
@@ -49,17 +50,27 @@ footer{text-align:center;padding:24px;color:var(--muted);font-size:12px;margin-t
 footer a{color:var(--umbra);text-decoration:none}
 
 @media(max-width:480px){
+  .search-focused .tabs{display:none!important}
+  .search-focused .dept-filters{display:none!important}
+  .search-focused header{display:none!important}
+  header{height:44px}
+  .header-title{font-size:12px}
+  .header-sub{font-size:10px}
+  
   .cards{grid-template-columns:1fr}
   .header-title{font-size:18px}
   .container{padding:12px}
 }
 </style>
+<link href="https://fonts.googleapis.com/css2?family=Tenor+Sans&display=swap" rel="stylesheet">
 </head>
 <body>
 
 <header>
-  <div class="header-title">Rewise Studio</div>
-  <div class="header-brand">Ремонт та реставрація взуття і сумок</div>
+  <div class="header-left">
+    <div class="header-title">REWISE</div>
+    <div class="header-studio">Studio</div>
+  </div>
   <div class="header-sub">Прайс-лист послуг</div>
 </header>
 
@@ -71,7 +82,7 @@ footer a{color:var(--umbra);text-decoration:none}
 
   <div class="search-bar">
     <span class="search-ico">⌕</span>
-    <input type="text" id="search" placeholder="Пошук послуги..." oninput="render()">
+    <input type="text" id="search" placeholder="Пошук послуги..." oninput="render()" onfocus="searchFocus()" onblur="searchBlur()">
   </div>
 
   <div class="dept-filters" id="dept-filters"></div>
@@ -1213,6 +1224,17 @@ async function loadFromSheet() {
   } catch(e) {
     console.log("Using built-in price data");
   }
+}
+
+function searchFocus() {
+  if (window.innerWidth <= 480) {
+    document.querySelector('.container').classList.add('search-focused');
+  }
+}
+function searchBlur() {
+  setTimeout(function() {
+    document.querySelector('.container').classList.remove('search-focused');
+  }, 200);
 }
 
 loadFromSheet().then(() => {
