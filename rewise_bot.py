@@ -619,9 +619,31 @@ async def get_dept(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     ctx.user_data["dept_label"] = text
     svc_map, _ = get_cached_services()
     svcs = svc_map.get(d["cur"]["type"], {}).get(dept_id, [])
-    svc_buttons = [f"{name} — {'от ' if a else ''}{fmt(p)}" for name, u, p, a in svcs]
+    svc_buttons = [f"{name} — {'від ' if a else ''}{fmt(p)}" for name, u, p, a in svcs]
     svc_buttons.append(BTN_MANUAL)
-    await update.message.reply_text(f"*{text}*\n\nОберіть послугу:", parse_mode="Markdown",
+
+    SHOE_HINTS = {
+        "літнє взуття":   "сандалі, босоніжки, шльопанці, сабо, мюлі",
+        "низьке взуття":  "туфлі, лофери, балетки, кросівки, кеді, мокасини",
+        "середнє взуття": "черевики, челсі, дезерти, ботильйони, хайтопи",
+        "високі чоботи":  "чоботи до коліна, ботфорти, берці",
+        "ugg та хутряне": "угги, дутики, хутряне та зимове взуття",
+    }
+    hint_lines = []
+    for name, u, p, a in svcs:
+        nameLC = name.lower()
+        for key, hint in SHOE_HINTS.items():
+            if key in nameLC:
+                label = name.split("—")[-1].strip() if "—" in name else name
+                if f"_{label}_" not in "_".join(hint_lines):
+                    hint_lines.append(f"_{label}_ — {hint}")
+                break
+    hint_text = "\n".join(hint_lines)
+    msg = f"*{text}*\n\nОберіть послугу:"
+    if hint_text:
+        msg = f"*{text}*\n\n{hint_text}\n\nОберіть послугу:"
+
+    await update.message.reply_text(msg, parse_mode="Markdown",
         reply_markup=kb(svc_buttons, cols=1, add_back=True, add_cancel=True))
     return SERVICE
 
