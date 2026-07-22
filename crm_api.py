@@ -73,7 +73,9 @@ def create_order():
             data.get("prepayMethod", ""),        # K спосіб передоплати
             "",                                   # L сума доплати (при видачі)
             "",                                   # M спосіб доплати (при видачі)
-            ""                                    # N сповіщено
+            "",                                   # N сповіщено
+            "",                                   # O нараховано бонусів
+            ""                                    # P списано бонусів
         ])
 
         # Вироби
@@ -528,6 +530,263 @@ def update_economics():
         return response
     except Exception as e:
         logger.error(f"Error updating economics: {e}")
+        response = jsonify({"status": "error", "message": str(e)})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response, 500
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  РЕДАГУВАННЯ ЗАМОВЛЕННЯ (клієнт / оплата / термін)
+# ══════════════════════════════════════════════════════════════════════
+@app.route("/order/update", methods=["POST", "OPTIONS"])
+def update_order():
+    if request.method == "OPTIONS":
+        response = app.make_default_options_response()
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+    try:
+        data = request.get_json()
+        order_num = data.get("order_num", "")
+
+        client = get_sheets_client()
+        sh = client.open_by_key(SHEET_ID)
+        ws = sh.worksheet("Замовлення")
+        all_rows = ws.get_all_values()
+
+        # Мапа поле → номер колонки
+        field_cols = {
+            "client": 4, "phone": 5, "payment": 6, "deadline": 7,
+            "note": 9, "messenger": 10, "prepayMethod": 11
+        }
+        for i, row in enumerate(all_rows):
+            if len(row) > 0 and row[0] == order_num:
+                for field, col in field_cols.items():
+                    if field in data:
+                        ws.update_cell(i + 1, col, data[field])
+                break
+
+        response = jsonify({"status": "ok"})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response
+    except Exception as e:
+        logger.error(f"Error updating order: {e}")
+        response = jsonify({"status": "error", "message": str(e)})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response, 500
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  РЕДАГУВАННЯ ВИРОБІВ ЗАМОВЛЕННЯ (перезапис усіх виробів замовлення)
+#  Приймає order_num + items[] — видаляє старі рядки цього замовлення,
+#  додає нові. Статуси та дати зберігаються для наявних (за номером виробу).
+# ══════════════════════════════════════════════════════════════════════
+@app.route("/items/update", methods=["POST", "OPTIONS"])
+def update_items():
+    if request.method == "OPTIONS":
+        response = app.make_default_options_response()
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+    try:
+        data = request.get_json()
+        order_num = data.get("order_num", "")
+        items = data.get("items", [])
+
+        client = get_sheets_client()
+        sh = client.open_by_key(SHEET_ID)
+        ws = sh.worksheet("Вироби")
+        all_rows = ws.get_all_values()
+
+        # Зберігаємо існуючі статуси/дати за номером виробу
+        existing = {}
+        for row in all_rows[1:]:
+            if len(row) > 1 and row[0] == order_num:
+                existing[row[1]] = row  # номер виробу → рядок
+
+        # Видаляємо старі рядки цього замовлення (з кінця)
+        for i in range(len(all_rows) - 1, 0, -1):
+            if len(all_rows[i]) > 0 and all_rows[i][0] == order_num:
+                ws.delete_rows(i + 1)
+
+        # Додаємо оновлені
+        now_str = datetime.now().strftime("%d.%m.%Y %H:%M")
+        for idx, item in enumerate(items, 1):
+            item_num = f"{order_num}-{idx}"
+            old = existing.get(item_num)
+            status = old[6] if old and len(old) > 6 else "🆕 Новий"
+            d_in = old[7] if old and len(old) > 7 else now_str
+            d_work = old[8] if old and len(old) > 8 else ""
+            d_ready = old[9] if old and len(old) > 9 else ""
+            d_issued = old[10] if old and len(old) > 10 else ""
+            notified = old[11] if old and len(old) > 11 else ""
+            ws.append_row([
+                order_num, item_num,
+                item.get("type", ""), item.get("brand", ""),
+                item.get("services", ""), item.get("total", ""),
+                status, d_in, d_work, d_ready, d_issued, notified
+            ])
+
+        response = jsonify({"status": "ok"})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response
+    except Exception as e:
+        logger.error(f"Error updating items: {e}")
+        response = jsonify({"status": "error", "message": str(e)})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response, 500
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  БОНУСИ
+#  Замовлення: O (15) нараховано | P (16) списано
+# ══════════════════════════════════════════════════════════════════════
+@app.route("/bonus", methods=["POST", "OPTIONS"])
+def update_bonus():
+    if request.method == "OPTIONS":
+        response = app.make_default_options_response()
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+    try:
+        data = request.get_json()
+        order_num = data.get("order_num", "")
+        accrued = data.get("accrued", None)   # нараховано
+        spent = data.get("spent", None)       # списано
+
+        client = get_sheets_client()
+        sh = client.open_by_key(SHEET_ID)
+        ws = sh.worksheet("Замовлення")
+        all_rows = ws.get_all_values()
+
+        for i, row in enumerate(all_rows):
+            if len(row) > 0 and row[0] == order_num:
+                if accrued is not None:
+                    ws.update_cell(i + 1, 15, str(accrued))  # O
+                if spent is not None:
+                    ws.update_cell(i + 1, 16, str(spent))    # P
+                break
+
+        response = jsonify({"status": "ok"})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response
+    except Exception as e:
+        logger.error(f"Error updating bonus: {e}")
+        response = jsonify({"status": "error", "message": str(e)})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response, 500
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  ЗАДАЧІ
+#  Лист "Задачі": A Текст | B Замовлення | C Статус | D Створено | E Виконано
+# ══════════════════════════════════════════════════════════════════════
+@app.route("/task", methods=["POST", "OPTIONS"])
+def create_task():
+    if request.method == "OPTIONS":
+        response = app.make_default_options_response()
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+    try:
+        data = request.get_json()
+        client = get_sheets_client()
+        sh = client.open_by_key(SHEET_ID)
+        ws = sh.worksheet("Задачі")
+        now_str = datetime.now().strftime("%d.%m.%Y %H:%M")
+        ws.append_row([
+            data.get("text", ""),
+            data.get("order", ""),
+            "ні",
+            now_str,
+            ""
+        ])
+        response = jsonify({"status": "ok"})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response
+    except Exception as e:
+        logger.error(f"Error creating task: {e}")
+        response = jsonify({"status": "error", "message": str(e)})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response, 500
+
+
+@app.route("/task/toggle", methods=["POST", "OPTIONS"])
+def toggle_task():
+    if request.method == "OPTIONS":
+        response = app.make_default_options_response()
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+    try:
+        data = request.get_json()
+        text = data.get("text", "")
+        created = data.get("created", "")
+        done = data.get("done", True)
+
+        client = get_sheets_client()
+        sh = client.open_by_key(SHEET_ID)
+        ws = sh.worksheet("Задачі")
+        all_rows = ws.get_all_values()
+        now_str = datetime.now().strftime("%d.%m.%Y %H:%M") if done else ""
+
+        for i, row in enumerate(all_rows):
+            if i == 0:
+                continue
+            r_text = row[0] if len(row) > 0 else ""
+            r_created = row[3] if len(row) > 3 else ""
+            if r_text == text and r_created == created:
+                ws.update_cell(i + 1, 3, "так" if done else "ні")
+                ws.update_cell(i + 1, 5, now_str)
+                break
+
+        response = jsonify({"status": "ok"})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response
+    except Exception as e:
+        logger.error(f"Error toggling task: {e}")
+        response = jsonify({"status": "error", "message": str(e)})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response, 500
+
+
+@app.route("/task/delete", methods=["POST", "OPTIONS"])
+def delete_task():
+    if request.method == "OPTIONS":
+        response = app.make_default_options_response()
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+    try:
+        data = request.get_json()
+        text = data.get("text", "")
+        created = data.get("created", "")
+
+        client = get_sheets_client()
+        sh = client.open_by_key(SHEET_ID)
+        ws = sh.worksheet("Задачі")
+        all_rows = ws.get_all_values()
+
+        for i, row in enumerate(all_rows):
+            if i == 0:
+                continue
+            r_text = row[0] if len(row) > 0 else ""
+            r_created = row[3] if len(row) > 3 else ""
+            if r_text == text and r_created == created:
+                ws.delete_rows(i + 1)
+                break
+
+        response = jsonify({"status": "ok"})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response
+    except Exception as e:
+        logger.error(f"Error deleting task: {e}")
         response = jsonify({"status": "error", "message": str(e)})
         response.headers["Access-Control-Allow-Origin"] = "*"
         return response, 500
