@@ -54,6 +54,10 @@ def create_order():
         sh = client.open_by_key(SHEET_ID)
 
         # Замовлення
+        # Колонки: A Номер | B Дата | C Приймальник | D Клієнт | E Телефон |
+        #          F Оплата | G Термін | H Статус | I Примітка |
+        #          J Месенджер | K Спосіб передоплати | L Сума доплати |
+        #          M Спосіб доплати | N Сповіщено
         ws_orders = sh.worksheet("Замовлення")
         ws_orders.append_row([
             order_num,
@@ -64,10 +68,18 @@ def create_order():
             data.get("payment", ""),
             data.get("deadline", ""),
             "🆕 Новий",
-            data.get("note", "")
+            data.get("note", ""),
+            data.get("messenger", ""),          # J
+            data.get("prepayMethod", ""),        # K спосіб передоплати
+            "",                                   # L сума доплати (при видачі)
+            "",                                   # M спосіб доплати (при видачі)
+            ""                                    # N сповіщено
         ])
 
         # Вироби
+        # Колонки: A Номер замовлення | B Номер виробу | C Тип | D Бренд |
+        #          E Послуги | F Сума | G Статус | H Дата прийому |
+        #          I Дата в роботі | J Дата готово | K Дата видачі | L Сповіщено
         ws_items = sh.worksheet("Вироби")
         now_str = datetime.now().strftime("%d.%m.%Y %H:%M")
         for i, item in enumerate(data.get("items", []), 1):
@@ -80,7 +92,8 @@ def create_order():
                 item.get("total", ""),
                 "🆕 Новий",
                 now_str,
-                "", "", ""
+                "", "", "",
+                ""                                # L сповіщено
             ])
 
         response = jsonify({"status": "ok", "order_num": order_num})
@@ -123,16 +136,45 @@ def update_status():
                     ws.update_cell(i + 1, 11, now_str)
                 break
 
-        # Check if all items issued — update order status
+        # Оновлюємо загальний статус замовлення на основі статусів виробів.
+        # Логіка:
+        #   всі видані                       → 📦 Виданий
+        #   частина видана, частина ні        → 🔸 Частково видано
+        #   є готові (але не всі видані)       → ✅ Готово
+        #   є в роботі                        → ⚙️ В роботі
+        #   інакше                            → 🆕 Новий
         order_num = item_num.rsplit("-", 1)[0]
-        all_items = [r for r in all_rows[1:] if len(r) > 1 and r[0] == order_num]
-        if all_items and all(r[6] == "📦 Виданий" for r in all_items if r[6]):
-            ws_orders = sh.worksheet("Замовлення")
-            orders = ws_orders.get_all_values()
-            for i, row in enumerate(orders):
-                if len(row) > 0 and row[0] == order_num:
-                    ws_orders.update_cell(i + 1, 8, "📦 Виданий")
-                    break
+        all_items = [r for r in all_rows[1:] if len(r) > 0 and r[0] == order_num]
+        # перечитуємо актуальні значення статусів (після оновлення поточного)
+        statuses = []
+        for r in all_items:
+            s = r[6] if len(r) > 6 else ""
+            # поточний рядок міг щойно змінитися — врахуємо це
+            if len(r) > 1 and r[1] == item_num:
+                s = status
+            statuses.append(s)
+
+        def order_status(sts):
+            if not sts:
+                return "🆕 Новий"
+            issued = sum(1 for s in sts if s == "📦 Виданий")
+            if issued == len(sts):
+                return "📦 Виданий"
+            if issued > 0:
+                return "🔸 Частково видано"
+            if any(s == "✅ Готово" for s in sts):
+                return "✅ Готово"
+            if any(s == "⚙️ В роботі" for s in sts):
+                return "⚙️ В роботі"
+            return "🆕 Новий"
+
+        new_order_status = order_status(statuses)
+        ws_orders = sh.worksheet("Замовлення")
+        orders = ws_orders.get_all_values()
+        for i, row in enumerate(orders):
+            if len(row) > 0 and row[0] == order_num:
+                ws_orders.update_cell(i + 1, 8, new_order_status)
+                break
 
         response = jsonify({"status": "ok"})
         response.headers["Access-Control-Allow-Origin"] = "*"
@@ -171,6 +213,83 @@ def update_note():
         response.headers["Access-Control-Allow-Origin"] = "*"
         return response
     except Exception as e:
+        response = jsonify({"status": "error", "message": str(e)})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response, 500
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  СПОВІЩЕННЯ КЛІЄНТА (відмітка "сповіщено" по виробу)
+#  Вироби, колонка L (12) = дата/час сповіщення або "" якщо знято
+# ══════════════════════════════════════════════════════════════════════
+@app.route("/notify", methods=["POST", "OPTIONS"])
+def mark_notified():
+    if request.method == "OPTIONS":
+        response = app.make_default_options_response()
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+    try:
+        data = request.get_json()
+        item_num = data.get("item_num", "")
+        notified = data.get("notified", True)  # True → ставимо дату, False → знімаємо
+
+        client = get_sheets_client()
+        sh = client.open_by_key(SHEET_ID)
+        ws = sh.worksheet("Вироби")
+        all_rows = ws.get_all_values()
+        val = datetime.now().strftime("%d.%m.%Y %H:%M") if notified else ""
+
+        for i, row in enumerate(all_rows):
+            if len(row) > 1 and row[1] == item_num:
+                ws.update_cell(i + 1, 12, val)  # L
+                break
+
+        response = jsonify({"status": "ok", "value": val})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response
+    except Exception as e:
+        logger.error(f"Error marking notified: {e}")
+        response = jsonify({"status": "error", "message": str(e)})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response, 500
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  ДОПЛАТА ПРИ ВИДАЧІ
+#  Замовлення: L (12) сума доплати | M (13) спосіб доплати
+# ══════════════════════════════════════════════════════════════════════
+@app.route("/settle", methods=["POST", "OPTIONS"])
+def settle_order():
+    if request.method == "OPTIONS":
+        response = app.make_default_options_response()
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+    try:
+        data = request.get_json()
+        order_num = data.get("order_num", "")
+        amount = data.get("amount", "")
+        method = data.get("method", "")
+
+        client = get_sheets_client()
+        sh = client.open_by_key(SHEET_ID)
+        ws = sh.worksheet("Замовлення")
+        all_rows = ws.get_all_values()
+
+        for i, row in enumerate(all_rows):
+            if len(row) > 0 and row[0] == order_num:
+                ws.update_cell(i + 1, 12, str(amount))   # L сума доплати
+                ws.update_cell(i + 1, 13, method)         # M спосіб доплати
+                break
+
+        response = jsonify({"status": "ok"})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response
+    except Exception as e:
+        logger.error(f"Error settling order: {e}")
         response = jsonify({"status": "error", "message": str(e)})
         response.headers["Access-Control-Allow-Origin"] = "*"
         return response, 500
