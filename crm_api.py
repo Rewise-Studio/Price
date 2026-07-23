@@ -95,6 +95,17 @@ def get_next_order_num():
     return f"RW-{next_num:04d}"
 
 
+def get_next_tailor_num():
+    """Лічильник замовлень на виготовлення — Налаштування, комірка B3."""
+    client = get_sheets_client()
+    sh = client.open_by_key(SHEET_ID)
+    ws = sh.worksheet("Налаштування")
+    current = ws.cell(3, 2).value or 0
+    next_num = int(current) + 1
+    ws.update_cell(3, 2, next_num)
+    return f"RW-V-{next_num:04d}"
+
+
 @app.route("/", methods=["GET"])
 def index():
     return jsonify({"status": "ok", "service": "Rewise CRM API"})
@@ -901,6 +912,120 @@ def delete_task():
         return response
     except Exception as e:
         logger.error(f"Error deleting task: {e}")
+        response = jsonify({"status": "error", "message": str(e)})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response, 500
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  ВИГОТОВЛЕННЯ
+#  Лист "Виготовлення":
+#  A Номер | B Дата створення | C Приймальник | D Ім'я клієнта | E Телефон |
+#  F Месенджер | G Виріб | H Матеріал | I Мірки | J Умови | K Вартість |
+#  L Оплата | M Спосіб передоплати | N Сума доплати | O Спосіб доплати |
+#  P Термін | Q Статус | R Примітка | S Фото
+# ══════════════════════════════════════════════════════════════════════
+@app.route("/tailor", methods=["POST", "OPTIONS"])
+def create_tailor():
+    if request.method == "OPTIONS":
+        response = app.make_default_options_response()
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+    try:
+        data = request.get_json()
+        num = get_next_tailor_num()
+
+        client = get_sheets_client()
+        sh = client.open_by_key(SHEET_ID)
+        ws = sh.worksheet("Виготовлення")
+        ws.append_row([
+            num,
+            data.get("date", ""),
+            data.get("manager", ""),
+            data.get("client", ""),
+            data.get("phone", ""),
+            data.get("messenger", ""),
+            data.get("product", ""),
+            data.get("material", ""),
+            data.get("measurements", ""),
+            data.get("terms", ""),
+            data.get("price", ""),
+            data.get("payment", ""),
+            data.get("prepayMethod", ""),
+            "",                              # N сума доплати
+            "",                              # O спосіб доплати
+            data.get("deadline", ""),
+            "🆕 Новий",
+            data.get("note", ""),
+            data.get("photo", "")
+        ])
+
+        response = jsonify({"status": "ok", "order_num": num})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+
+        try:
+            send_telegram_notification(
+                f"✂️ <b>REWISE STUDIO — Виготовлення</b>\n\n"
+                f"🔖 {num}\n"
+                f"👤 {data.get('client','')}\n"
+                f"📞 {data.get('phone','')}\n"
+                f"👨‍💼 Прийняв: {data.get('manager','')}\n"
+                f"📅 {data.get('date','')}\n\n"
+                f"🧵 {data.get('product','')}\n"
+                f"🎨 Матеріал: {data.get('material','')}\n"
+                f"💰 Вартість: {data.get('price','')}\n"
+                f"📆 Термін: {data.get('deadline','')}\n\n"
+                f"Rewise Studio"
+            )
+        except Exception as e:
+            logger.error(f"Telegram notify (tailor) error: {e}")
+
+        return response
+    except Exception as e:
+        logger.error(f"Error creating tailor order: {e}")
+        response = jsonify({"status": "error", "message": str(e)})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response, 500
+
+
+@app.route("/tailor/update", methods=["POST", "OPTIONS"])
+def update_tailor():
+    if request.method == "OPTIONS":
+        response = app.make_default_options_response()
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+    try:
+        data = request.get_json()
+        num = data.get("order_num", "")
+
+        client = get_sheets_client()
+        sh = client.open_by_key(SHEET_ID)
+        ws = sh.worksheet("Виготовлення")
+        all_rows = ws.get_all_values()
+
+        field_cols = {
+            "client": 4, "phone": 5, "messenger": 6, "product": 7,
+            "material": 8, "measurements": 9, "terms": 10, "price": 11,
+            "payment": 12, "prepayMethod": 13, "settleAmount": 14,
+            "settleMethod": 15, "deadline": 16, "status": 17,
+            "note": 18, "photo": 19
+        }
+        for i, row in enumerate(all_rows):
+            if len(row) > 0 and row[0] == num:
+                for field, col in field_cols.items():
+                    if field in data:
+                        ws.update_cell(i + 1, col, data[field])
+                break
+
+        response = jsonify({"status": "ok"})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response
+    except Exception as e:
+        logger.error(f"Error updating tailor order: {e}")
         response = jsonify({"status": "error", "message": str(e)})
         response.headers["Access-Control-Allow-Origin"] = "*"
         return response, 500
