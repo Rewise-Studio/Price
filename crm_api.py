@@ -715,6 +715,7 @@ def update_items():
 # ══════════════════════════════════════════════════════════════════════
 @app.route("/bonus", methods=["POST", "OPTIONS"])
 def update_bonus():
+    """Оновлення бонусів замовлення (O нараховано / P списано)."""
     if request.method == "OPTIONS":
         response = app.make_default_options_response()
         response.headers["Access-Control-Allow-Origin"] = "*"
@@ -745,6 +746,48 @@ def update_bonus():
         return response
     except Exception as e:
         logger.error(f"Error updating bonus: {e}")
+        response = jsonify({"status": "error", "message": str(e)})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response, 500
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  РУЧНИЙ РЕЙТИНГ КЛІЄНТА
+#  Замовлення: Q (17) Рейтинг вручну — пишемо в останній рядок цього телефону
+#  Значення: "green" | "yellow" | "red" | "" (авто)
+# ══════════════════════════════════════════════════════════════════════
+@app.route("/client/rating", methods=["POST", "OPTIONS"])
+def set_client_rating():
+    if request.method == "OPTIONS":
+        response = app.make_default_options_response()
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+    try:
+        data = request.get_json()
+        phone = str(data.get("phone", "")).strip()
+        rating = data.get("rating", "")
+
+        client = get_sheets_client()
+        sh = client.open_by_key(SHEET_ID)
+        ws = sh.worksheet("Замовлення")
+        all_rows = ws.get_all_values()
+
+        target_row = None
+        for i, row in enumerate(all_rows):
+            if i == 0:
+                continue
+            if len(row) > 4 and str(row[4]).strip() == phone:
+                target_row = i + 1  # останній збіг
+        if target_row:
+            ws.update_cell(target_row, 17, rating)  # Q
+
+        response = jsonify({"status": "ok"})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response
+    except Exception as e:
+        logger.error(f"Error setting client rating: {e}")
         response = jsonify({"status": "error", "message": str(e)})
         response.headers["Access-Control-Allow-Origin"] = "*"
         return response, 500
