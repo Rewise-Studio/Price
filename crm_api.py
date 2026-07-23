@@ -1,6 +1,7 @@
 import os
 import json
 import logging
+import requests
 from datetime import datetime
 from flask import Flask, request, jsonify
 import gspread
@@ -11,7 +12,69 @@ logger = logging.getLogger(__name__)
 
 SHEET_ID = os.environ.get("GOOGLE_SHEET_ID", "")
 
+# Telegram-повідомлення про нові замовлення (той самий канал/група, що й бот)
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "8973167605:AAEea9K77DDQWLGrRvSc7BJFeLSRuuDtDOo")
+TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "-5226279696")
+
 app = Flask(__name__)
+
+
+def send_telegram_notification(text):
+    """Надсилає повідомлення в Telegram-групу. Помилка тут НЕ повинна ламати створення замовлення."""
+    try:
+        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+        payload = {"chat_id": TELEGRAM_CHAT_ID, "text": text, "parse_mode": "HTML"}
+        requests.post(url, json=payload, timeout=5)
+    except Exception as e:
+        logger.error(f"Telegram notify failed: {e}")
+
+
+def _extract_amount(s):
+    digits = "".join(ch for ch in str(s) if ch.isdigit())
+    return int(digits) if digits else 0
+
+
+def build_order_message(order_num, data):
+    """Формує текст у тому ж стилі, що й повідомлення з Telegram-бота."""
+    client_name = data.get("client", "")
+    phone = data.get("phone", "")
+    manager = data.get("manager", "")
+    date_str = data.get("date", "")
+    deadline = data.get("deadline", "")
+    payment = data.get("payment", "")
+
+    items_text = ""
+    total = 0
+    for i, item in enumerate(data.get("items", []), 1):
+        item_num = f"{order_num}-{i}"
+        item_type = item.get("type", "")
+        item_brand = item.get("brand", "")
+        services = item.get("services", "")
+        item_total = _extract_amount(item.get("total", "0"))
+        total += item_total
+        label = f"{item_type} — {item_brand}" if item_brand else item_type
+        items_text += f"\n👜 {item_num} — {label}\n  • {services} — {item_total} ₴\n"
+
+    deadline_line = ""
+    if "Терміново" in deadline:
+        deadline_line = f"🔥 {deadline}\n"
+    elif deadline:
+        deadline_line = f"📆 {deadline}\n"
+
+    return (
+        f"📋 <b>REWISE STUDIO — Нове замовлення</b>\n\n"
+        f"🔖 {order_num}\n"
+        f"👤 {client_name}\n"
+        f"📞 {phone}\n"
+        f"👨‍💼 Прийняв: {manager}\n"
+        f"📅 {date_str}\n"
+        f"{deadline_line}"
+        f"{items_text}\n"
+        f"💰 Разом: {total} ₴\n"
+        f"💳 Оплата: {payment}\n\n"
+        f"Остаточна вартість узгоджується після огляду виробу\n\n"
+        f"Rewise Studio"
+    )
 
 
 def get_sheets_client():
@@ -100,6 +163,13 @@ def create_order():
 
         response = jsonify({"status": "ok", "order_num": order_num})
         response.headers["Access-Control-Allow-Origin"] = "*"
+
+        # Сповіщення в Telegram — не блокує відповідь клієнту у разі помилки
+        try:
+            send_telegram_notification(build_order_message(order_num, data))
+        except Exception as e:
+            logger.error(f"Telegram notify error: {e}")
+
         return response
     except Exception as e:
         logger.error(f"Error creating order: {e}")
@@ -682,7 +752,7 @@ def update_bonus():
 
 # ══════════════════════════════════════════════════════════════════════
 #  ЗАДАЧІ
-#  Лист "Задачі": A Текст | B Замовлення | C Статус | D Створено | E Виконано
+#  Лист "Задачі": A Текст | B Замовлення | C Статус | D Створено | E Виконано | F Дедлайн
 # ══════════════════════════════════════════════════════════════════════
 @app.route("/task", methods=["POST", "OPTIONS"])
 def create_task():
@@ -703,7 +773,8 @@ def create_task():
             data.get("order", ""),
             "ні",
             now_str,
-            ""
+            "",
+            data.get("deadline", "")
         ])
         response = jsonify({"status": "ok"})
         response.headers["Access-Control-Allow-Origin"] = "*"
