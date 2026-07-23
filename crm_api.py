@@ -1031,6 +1031,201 @@ def update_tailor():
         return response, 500
 
 
+# ══════════════════════════════════════════════════════════════════════
+#  ПРАЙС
+#  Лист "Прайс": A категорія | B (службова) | C відділ | D послуга |
+#                E одиниця | F ціна | + колонка "Активна" (шукається за назвою)
+# ══════════════════════════════════════════════════════════════════════
+def _price_sheet(sh):
+    return sh.worksheet("Прайс")
+
+
+def _active_col_index(rows):
+    """Шукає колонку 'Активна' у шапці. Повертає 1-based індекс або None."""
+    if not rows:
+        return None
+    header = rows[0]
+    for i, name in enumerate(header):
+        if str(name).strip().lower() in ("активна", "активність", "active"):
+            return i + 1
+    return None
+
+
+def _find_price_row(rows, category, dept, service):
+    """Знаходить 1-based номер рядка за категорією, відділом і назвою послуги."""
+    for i, row in enumerate(rows):
+        if i == 0:
+            continue
+        c = row[0].strip() if len(row) > 0 else ""
+        d = row[2].strip() if len(row) > 2 else ""
+        s = row[3].strip() if len(row) > 3 else ""
+        if c == category and d == dept and s == service:
+            return i + 1
+    return None
+
+
+@app.route("/price/update", methods=["POST", "OPTIONS"])
+def price_update():
+    if request.method == "OPTIONS":
+        response = app.make_default_options_response()
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+    try:
+        data = request.get_json()
+        client = get_sheets_client()
+        sh = client.open_by_key(SHEET_ID)
+        ws = _price_sheet(sh)
+        rows = ws.get_all_values()
+
+        row = _find_price_row(rows, data.get("category",""), data.get("department",""), data.get("service",""))
+        if not row:
+            response = jsonify({"status": "error", "message": "Послугу не знайдено"})
+            response.headers["Access-Control-Allow-Origin"] = "*"
+            return response, 404
+
+        if "price" in data:
+            ws.update_cell(row, 6, data["price"])
+        if "unit" in data:
+            ws.update_cell(row, 5, data["unit"])
+        if "newName" in data and data["newName"]:
+            ws.update_cell(row, 4, data["newName"])
+        if "active" in data:
+            col = _active_col_index(rows)
+            if col:
+                ws.update_cell(row, col, "так" if data["active"] else "ні")
+
+        response = jsonify({"status": "ok"})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response
+    except Exception as e:
+        logger.error(f"Error updating price: {e}")
+        response = jsonify({"status": "error", "message": str(e)})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response, 500
+
+
+@app.route("/price/add", methods=["POST", "OPTIONS"])
+def price_add():
+    if request.method == "OPTIONS":
+        response = app.make_default_options_response()
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+    try:
+        data = request.get_json()
+        category = data.get("category", "")
+        dept = data.get("department", "")
+        service = data.get("service", "")
+        unit = data.get("unit", "")
+        price = data.get("price", "")
+
+        client = get_sheets_client()
+        sh = client.open_by_key(SHEET_ID)
+        ws = _price_sheet(sh)
+        rows = ws.get_all_values()
+
+        # Службову колонку B копіюємо з існуючого рядка тієї ж категорії
+        col_b = ""
+        width = len(rows[0]) if rows else 6
+        for i, row in enumerate(rows):
+            if i == 0:
+                continue
+            if len(row) > 1 and row[0].strip() == category:
+                col_b = row[1]
+                break
+
+        new_row = [category, col_b, dept, service, unit, str(price)]
+        active_col = _active_col_index(rows)
+        while len(new_row) < width:
+            new_row.append("")
+        if active_col:
+            new_row[active_col - 1] = "так"
+
+        ws.append_row(new_row)
+
+        response = jsonify({"status": "ok"})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response
+    except Exception as e:
+        logger.error(f"Error adding price row: {e}")
+        response = jsonify({"status": "error", "message": str(e)})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response, 500
+
+
+@app.route("/price/delete", methods=["POST", "OPTIONS"])
+def price_delete():
+    if request.method == "OPTIONS":
+        response = app.make_default_options_response()
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+    try:
+        data = request.get_json()
+        client = get_sheets_client()
+        sh = client.open_by_key(SHEET_ID)
+        ws = _price_sheet(sh)
+        rows = ws.get_all_values()
+
+        row = _find_price_row(rows, data.get("category",""), data.get("department",""), data.get("service",""))
+        if row:
+            ws.delete_rows(row)
+
+        response = jsonify({"status": "ok"})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response
+    except Exception as e:
+        logger.error(f"Error deleting price row: {e}")
+        response = jsonify({"status": "error", "message": str(e)})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response, 500
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  НАЛАШТУВАННЯ (лист "Налаштування": ключ у колонці A, значення у B)
+# ══════════════════════════════════════════════════════════════════════
+@app.route("/settings/update", methods=["POST", "OPTIONS"])
+def settings_update():
+    if request.method == "OPTIONS":
+        response = app.make_default_options_response()
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+    try:
+        data = request.get_json()
+        items = data.get("items", {})  # { "Бонус %": 3, ... }
+
+        client = get_sheets_client()
+        sh = client.open_by_key(SHEET_ID)
+        ws = sh.worksheet("Налаштування")
+        rows = ws.get_all_values()
+
+        for key, value in items.items():
+            found = None
+            for i, row in enumerate(rows):
+                if len(row) > 0 and str(row[0]).strip() == key:
+                    found = i + 1
+                    break
+            if found:
+                ws.update_cell(found, 2, str(value))
+            else:
+                ws.append_row([key, str(value)])
+
+        response = jsonify({"status": "ok"})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response
+    except Exception as e:
+        logger.error(f"Error updating settings: {e}")
+        response = jsonify({"status": "error", "message": str(e)})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response, 500
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
