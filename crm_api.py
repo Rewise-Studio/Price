@@ -959,7 +959,8 @@ def create_tailor():
             data.get("deadline", ""),
             "🆕 Новий",
             data.get("note", ""),
-            data.get("photo", "")
+            data.get("photo", ""),
+            data.get("sketch", "")              # T Референс — фото-зразок, за яким шиємо
         ])
 
         response = jsonify({"status": "ok", "order_num": num})
@@ -1012,7 +1013,7 @@ def update_tailor():
             "material": 8, "measurements": 9, "terms": 10, "price": 11,
             "payment": 12, "prepayMethod": 13, "settleAmount": 14,
             "settleMethod": 15, "deadline": 16, "status": 17,
-            "note": 18, "photo": 19
+            "note": 18, "photo": 19, "sketch": 20
         }
         for i, row in enumerate(all_rows):
             if len(row) > 0 and row[0] == num:
@@ -1047,6 +1048,18 @@ def _active_col_index(rows):
     header = rows[0]
     for i, name in enumerate(header):
         if str(name).strip().lower() in ("активна", "активність", "active"):
+            return i + 1
+    return None
+
+
+def _term_col_index(rows):
+    """Шукає колонку терміну ('Термін'/'Строк'/'Срок'/'…виконання') у шапці."""
+    if not rows:
+        return None
+    header = rows[0]
+    for i, name in enumerate(header):
+        lbl = str(name).strip().lower()
+        if ("термін" in lbl) or ("строк" in lbl) or ("срок" in lbl) or ("виконан" in lbl):
             return i + 1
     return None
 
@@ -1095,6 +1108,10 @@ def price_update():
             col = _active_col_index(rows)
             if col:
                 ws.update_cell(row, col, "так" if data["active"] else "ні")
+        if "term" in data:
+            tcol = _term_col_index(rows)
+            if tcol:
+                ws.update_cell(row, tcol, str(data.get("term", "")))
 
         response = jsonify({"status": "ok"})
         response.headers["Access-Control-Allow-Origin"] = "*"
@@ -1139,10 +1156,15 @@ def price_add():
 
         new_row = [category, col_b, dept, service, unit, str(price)]
         active_col = _active_col_index(rows)
+        term_col = _term_col_index(rows)
         while len(new_row) < width:
             new_row.append("")
         if active_col:
             new_row[active_col - 1] = "так"
+        if term_col:
+            while len(new_row) < term_col:
+                new_row.append("")
+            new_row[term_col - 1] = str(data.get("term", ""))
 
         ws.append_row(new_row)
 
