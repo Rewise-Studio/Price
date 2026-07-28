@@ -1248,6 +1248,58 @@ def settings_update():
         return response, 500
 
 
+# ══════════════════════════════════════════════════════════════════════
+#  БРЕНДИ (лист "Бренди": один стовпець A, заголовок "Бренд")
+# ══════════════════════════════════════════════════════════════════════
+@app.route("/brands/add", methods=["POST", "OPTIONS"])
+def brands_add():
+    if request.method == "OPTIONS":
+        response = app.make_default_options_response()
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+    try:
+        data = request.get_json() or {}
+        brands = data.get("brands", [])
+        if isinstance(brands, str):
+            brands = [brands]
+        brands = [str(b).strip() for b in brands if str(b).strip()]
+        if not brands:
+            response = jsonify({"status": "ok", "added": 0})
+            response.headers["Access-Control-Allow-Origin"] = "*"
+            return response
+
+        client = get_sheets_client()
+        sh = client.open_by_key(SHEET_ID)
+        try:
+            ws = sh.worksheet("Бренди")
+        except Exception:
+            ws = sh.add_worksheet(title="Бренди", rows=200, cols=1)
+            ws.update_cell(1, 1, "Бренд")
+
+        existing = set()
+        for row in ws.get_all_values():
+            if row and str(row[0]).strip():
+                existing.add(str(row[0]).strip().lower())
+
+        added = 0
+        for b in brands:
+            if b.lower() not in existing:
+                ws.append_row([b])
+                existing.add(b.lower())
+                added += 1
+
+        response = jsonify({"status": "ok", "added": added})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response
+    except Exception as e:
+        logger.error(f"Error adding brands: {e}")
+        response = jsonify({"status": "error", "message": str(e)})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response, 500
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
