@@ -169,7 +169,13 @@ def create_order():
                 "🆕 Новий",
                 now_str,
                 "", "", "",
-                ""                                # L сповіщено
+                "",                               # L сповіщено
+                "",                               # M Майстер
+                "",                               # N Хто видав
+                item.get("color", ""),            # O Колір
+                item.get("material", ""),         # P Матеріал
+                item.get("condition", ""),        # Q Стан
+                data.get("delivery", "")          # R Доставка
             ])
 
         response = jsonify({"status": "ok", "order_num": order_num})
@@ -1300,6 +1306,58 @@ def brands_add():
         return response
     except Exception as e:
         logger.error(f"Error adding brands: {e}")
+        response = jsonify({"status": "error", "message": str(e)})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response, 500
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  КОЛЬОРИ (лист "Кольори": один стовпець A, заголовок "Колір")
+# ══════════════════════════════════════════════════════════════════════
+@app.route("/colors/add", methods=["POST", "OPTIONS"])
+def colors_add():
+    if request.method == "OPTIONS":
+        response = app.make_default_options_response()
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+    try:
+        data = request.get_json() or {}
+        colors = data.get("colors", [])
+        if isinstance(colors, str):
+            colors = [colors]
+        colors = [str(c).strip() for c in colors if str(c).strip()]
+        if not colors:
+            response = jsonify({"status": "ok", "added": 0})
+            response.headers["Access-Control-Allow-Origin"] = "*"
+            return response
+
+        client = get_sheets_client()
+        sh = client.open_by_key(SHEET_ID)
+        try:
+            ws = sh.worksheet("Кольори")
+        except Exception:
+            ws = sh.add_worksheet(title="Кольори", rows=200, cols=1)
+            ws.update_cell(1, 1, "Колір")
+
+        existing = set()
+        for row in ws.get_all_values():
+            if row and str(row[0]).strip():
+                existing.add(str(row[0]).strip().lower())
+
+        added = 0
+        for c in colors:
+            if c.lower() not in existing:
+                ws.append_row([c])
+                existing.add(c.lower())
+                added += 1
+
+        response = jsonify({"status": "ok", "added": added})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response
+    except Exception as e:
+        logger.error(f"Error adding colors: {e}")
         response = jsonify({"status": "error", "message": str(e)})
         response.headers["Access-Control-Allow-Origin"] = "*"
         return response, 500
