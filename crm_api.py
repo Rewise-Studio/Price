@@ -201,6 +201,7 @@ def update_status():
         data = request.get_json()
         item_num = data.get("item_num", "")
         status = data.get("status", "")
+        master = data.get("master", "")
 
         client = get_sheets_client()
         sh = client.open_by_key(SHEET_ID)
@@ -213,10 +214,14 @@ def update_status():
                 ws.update_cell(i + 1, 7, status)
                 if status == "⚙️ В роботі":
                     ws.update_cell(i + 1, 9, now_str)
+                    if master:
+                        ws.update_cell(i + 1, 13, master)   # M Майстер
                 elif status == "✅ Готово":
                     ws.update_cell(i + 1, 10, now_str)
                 elif status == "📦 Виданий":
                     ws.update_cell(i + 1, 11, now_str)
+                    if master:
+                        ws.update_cell(i + 1, 14, master)   # N Хто видав
                 break
 
         # Оновлюємо загальний статус замовлення на основі статусів виробів.
