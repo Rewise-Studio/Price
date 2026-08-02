@@ -196,50 +196,6 @@ def create_order():
         return response, 500
 
 
-@app.route("/settings/update", methods=["POST", "OPTIONS"])
-def settings_update():
-    if request.method == "OPTIONS":
-        response = app.make_default_options_response()
-        response.headers["Access-Control-Allow-Origin"] = "*"
-        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
-        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
-        return response
-    try:
-        data = request.get_json() or {}
-        items = data.get("items", {}) or {}
-
-        client = get_sheets_client()
-        sh = client.open_by_key(SHEET_ID)
-        ws = sh.worksheet("Налаштування")
-        all_rows = ws.get_all_values()
-
-        # ключ у колонці A -> номер рядка (1-based)
-        key_to_row = {}
-        for idx, row in enumerate(all_rows, start=1):
-            if row and len(row) >= 1 and str(row[0]).strip():
-                key_to_row[str(row[0]).strip()] = idx
-
-        for key, val in items.items():
-            key = str(key).strip()
-            if not key:
-                continue
-            val = "" if val is None else str(val)
-            if key in key_to_row:
-                ws.update_cell(key_to_row[key], 2, val)
-            else:
-                ws.append_row([key, val])
-                key_to_row[key] = len(ws.get_all_values())
-
-        response = jsonify({"status": "ok"})
-        response.headers["Access-Control-Allow-Origin"] = "*"
-        return response
-    except Exception as e:
-        logger.error(f"Error updating settings: {e}")
-        response = jsonify({"status": "error", "message": str(e)})
-        response.headers["Access-Control-Allow-Origin"] = "*"
-        return response, 500
-
-
 @app.route("/status", methods=["POST", "OPTIONS"])
 def update_status():
     if request.method == "OPTIONS":
