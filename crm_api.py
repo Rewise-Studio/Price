@@ -232,19 +232,11 @@ def update_status():
                 break
 
         # Оновлюємо загальний статус замовлення на основі статусів виробів.
-        # Логіка:
-        #   всі видані                       → 📦 Виданий
-        #   частина видана, частина ні        → 🔸 Частково видано
-        #   є готові (але не всі видані)       → ✅ Готово
-        #   є в роботі                        → ⚙️ В роботі
-        #   інакше                            → 🆕 Новий
         order_num = item_num.rsplit("-", 1)[0]
         all_items = [r for r in all_rows[1:] if len(r) > 0 and r[0] == order_num]
-        # перечитуємо актуальні значення статусів (після оновлення поточного)
         statuses = []
         for r in all_items:
             s = r[6] if len(r) > 6 else ""
-            # поточний рядок міг щойно змінитися — врахуємо це
             if len(r) > 1 and r[1] == item_num:
                 s = status
             statuses.append(s)
@@ -328,7 +320,7 @@ def mark_notified():
     try:
         data = request.get_json()
         item_num = data.get("item_num", "")
-        notified = data.get("notified", True)  # True → ставимо дату, False → знімаємо
+        notified = data.get("notified", True)
 
         client = get_sheets_client()
         sh = client.open_by_key(SHEET_ID)
@@ -392,9 +384,6 @@ def settle_order():
 
 # ══════════════════════════════════════════════════════════════════════
 #  МАТЕРІАЛИ
-#  Лист "Матеріали":
-#  A Назва | B Розмір упаковки | C Одиниця | D Ціна упаковки ₴ |
-#  E Курс покупки | F Ціна упаковки $ | G Ціна за од. $ | H Постачальник | I Оновлено
 # ══════════════════════════════════════════════════════════════════════
 
 @app.route("/material", methods=["POST", "OPTIONS"])
@@ -414,7 +403,6 @@ def save_material():
         buy_rate = float(data.get("buyRate", 0) or 0)
         supplier = data.get("supplier", "")
 
-        # Розрахунок доларових цін
         pack_price_usd = round(pack_price_uah / buy_rate, 4) if buy_rate else 0
         unit_price_usd = round(pack_price_usd / pack_size, 6) if pack_size else 0
 
@@ -428,12 +416,11 @@ def save_material():
             buy_rate, pack_price_usd, unit_price_usd, supplier, now_str
         ]
 
-        # Якщо матеріал з такою назвою вже є — оновлюємо, інакше додаємо
         all_rows = ws.get_all_values()
         found = False
         for i, row in enumerate(all_rows):
             if i == 0:
-                continue  # заголовок
+                continue
             if len(row) > 0 and row[0].strip() == name:
                 for col, val in enumerate(row_values, start=1):
                     ws.update_cell(i + 1, col, val)
@@ -487,11 +474,7 @@ def delete_material():
 
 
 # ══════════════════════════════════════════════════════════════════════
-#  ЕКОНОМІКА (збереження розрахунків собівартості)
-#  Лист "Економіка":
-#  A Послуга | B Ціна | C Матеріали(JSON) | D Собів. матеріалів | E Норма-год |
-#  F ₴/год | G Собів. часу | H Накладні | I Повна собів. | J Маржа |
-#  K Маржа % | L Курс $ | M Оновлено
+#  ЕКОНОМІКА
 # ══════════════════════════════════════════════════════════════════════
 
 @app.route("/economics", methods=["POST", "OPTIONS"])
@@ -545,7 +528,6 @@ def delete_economics():
         return response
     try:
         data = request.get_json()
-        # Ідентифікуємо рядок за послугою + датою оновлення (унікальна пара)
         service = data.get("service", "").strip()
         updated = data.get("updated", "").strip()
 
@@ -556,7 +538,7 @@ def delete_economics():
 
         for i, row in enumerate(all_rows):
             if i == 0:
-                continue  # заголовок
+                continue
             row_service = row[0].strip() if len(row) > 0 else ""
             row_updated = row[12].strip() if len(row) > 12 else ""
             if row_service == service and row_updated == updated:
@@ -648,7 +630,6 @@ def update_order():
         ws = sh.worksheet("Замовлення")
         all_rows = ws.get_all_values()
 
-        # Мапа поле → номер колонки
         field_cols = {
             "client": 4, "phone": 5, "payment": 6, "deadline": 7,
             "note": 9, "messenger": 10, "prepayMethod": 11
@@ -671,9 +652,66 @@ def update_order():
 
 
 # ══════════════════════════════════════════════════════════════════════
-#  РЕДАГУВАННЯ ВИРОБІВ ЗАМОВЛЕННЯ (перезапис усіх виробів замовлення)
-#  Приймає order_num + items[] — видаляє старі рядки цього замовлення,
-#  додає нові. Статуси та дати зберігаються для наявних (за номером виробу).
+#  ВИДАЛЕННЯ ЗАМОВЛЕННЯ (м'яке — статус "🗑 Видалено", рядки НЕ стираються)
+#  Замовлення: колонка H (8) Статус.
+#  Вироби: колонка G (7) Статус — теж помічаємо, щоб не висіли "в роботі" тощо.
+#  Дані лишаються у таблиці — операція оборотна вручну через Google Sheets.
+# ══════════════════════════════════════════════════════════════════════
+DELETED_STATUS = "🗑 Видалено"
+
+@app.route("/order/delete", methods=["POST", "OPTIONS"])
+def delete_order():
+    if request.method == "OPTIONS":
+        response = app.make_default_options_response()
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+    try:
+        data = request.get_json()
+        order_num = data.get("order_num", "")
+        if not order_num:
+            response = jsonify({"status": "error", "message": "order_num обов'язковий"})
+            response.headers["Access-Control-Allow-Origin"] = "*"
+            return response, 400
+
+        client = get_sheets_client()
+        sh = client.open_by_key(SHEET_ID)
+
+        # Замовлення — позначаємо статус
+        ws_orders = sh.worksheet("Замовлення")
+        order_rows = ws_orders.get_all_values()
+        found_order = False
+        for i, row in enumerate(order_rows):
+            if len(row) > 0 and row[0] == order_num:
+                ws_orders.update_cell(i + 1, 8, DELETED_STATUS)
+                found_order = True
+                break
+
+        if not found_order:
+            response = jsonify({"status": "error", "message": "Замовлення не знайдено"})
+            response.headers["Access-Control-Allow-Origin"] = "*"
+            return response, 404
+
+        # Вироби цього замовлення — теж позначаємо, щоб не рахувались "в роботі"/"готово"
+        ws_items = sh.worksheet("Вироби")
+        item_rows = ws_items.get_all_values()
+        for i, row in enumerate(item_rows):
+            if len(row) > 0 and row[0] == order_num:
+                ws_items.update_cell(i + 1, 7, DELETED_STATUS)
+
+        response = jsonify({"status": "ok"})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response
+    except Exception as e:
+        logger.error(f"Error deleting order: {e}")
+        response = jsonify({"status": "error", "message": str(e)})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response, 500
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  РЕДАГУВАННЯ ВИРОБІВ ЗАМОВЛЕННЯ
 # ══════════════════════════════════════════════════════════════════════
 @app.route("/items/update", methods=["POST", "OPTIONS"])
 def update_items():
@@ -693,18 +731,15 @@ def update_items():
         ws = sh.worksheet("Вироби")
         all_rows = ws.get_all_values()
 
-        # Зберігаємо існуючі статуси/дати за номером виробу
         existing = {}
         for row in all_rows[1:]:
             if len(row) > 1 and row[0] == order_num:
-                existing[row[1]] = row  # номер виробу → рядок
+                existing[row[1]] = row
 
-        # Видаляємо старі рядки цього замовлення (з кінця)
         for i in range(len(all_rows) - 1, 0, -1):
             if len(all_rows[i]) > 0 and all_rows[i][0] == order_num:
                 ws.delete_rows(i + 1)
 
-        # Додаємо оновлені
         now_str = datetime.now().strftime("%d.%m.%Y %H:%M")
         for idx, item in enumerate(items, 1):
             item_num = f"{order_num}-{idx}"
@@ -734,11 +769,9 @@ def update_items():
 
 # ══════════════════════════════════════════════════════════════════════
 #  БОНУСИ
-#  Замовлення: O (15) нараховано | P (16) списано
 # ══════════════════════════════════════════════════════════════════════
 @app.route("/bonus", methods=["POST", "OPTIONS"])
 def update_bonus():
-    """Оновлення бонусів замовлення (O нараховано / P списано)."""
     if request.method == "OPTIONS":
         response = app.make_default_options_response()
         response.headers["Access-Control-Allow-Origin"] = "*"
@@ -748,8 +781,8 @@ def update_bonus():
     try:
         data = request.get_json()
         order_num = data.get("order_num", "")
-        accrued = data.get("accrued", None)   # нараховано
-        spent = data.get("spent", None)       # списано
+        accrued = data.get("accrued", None)
+        spent = data.get("spent", None)
 
         client = get_sheets_client()
         sh = client.open_by_key(SHEET_ID)
@@ -776,8 +809,6 @@ def update_bonus():
 
 # ══════════════════════════════════════════════════════════════════════
 #  РУЧНИЙ РЕЙТИНГ КЛІЄНТА
-#  Замовлення: Q (17) Рейтинг вручну — пишемо в останній рядок цього телефону
-#  Значення: "green" | "yellow" | "red" | "" (авто)
 # ══════════════════════════════════════════════════════════════════════
 @app.route("/client/rating", methods=["POST", "OPTIONS"])
 def set_client_rating():
@@ -802,7 +833,7 @@ def set_client_rating():
             if i == 0:
                 continue
             if len(row) > 4 and str(row[4]).strip() == phone:
-                target_row = i + 1  # останній збіг
+                target_row = i + 1
         if target_row:
             ws.update_cell(target_row, 17, rating)  # Q
 
@@ -818,7 +849,6 @@ def set_client_rating():
 
 # ══════════════════════════════════════════════════════════════════════
 #  ЗАДАЧІ
-#  Лист "Задачі": A Текст | B Замовлення | C Статус | D Створено | E Виконано | F Дедлайн
 # ══════════════════════════════════════════════════════════════════════
 @app.route("/task", methods=["POST", "OPTIONS"])
 def create_task():
@@ -931,11 +961,6 @@ def delete_task():
 
 # ══════════════════════════════════════════════════════════════════════
 #  ВИГОТОВЛЕННЯ
-#  Лист "Виготовлення":
-#  A Номер | B Дата створення | C Приймальник | D Ім'я клієнта | E Телефон |
-#  F Месенджер | G Виріб | H Матеріал | I Мірки | J Умови | K Вартість |
-#  L Оплата | M Спосіб передоплати | N Сума доплати | O Спосіб доплати |
-#  P Термін | Q Статус | R Примітка | S Фото
 # ══════════════════════════════════════════════════════════════════════
 @app.route("/tailor", methods=["POST", "OPTIONS"])
 def create_tailor():
@@ -966,13 +991,13 @@ def create_tailor():
             data.get("price", ""),
             data.get("payment", ""),
             data.get("prepayMethod", ""),
-            "",                              # N сума доплати
-            "",                              # O спосіб доплати
+            "",
+            "",
             data.get("deadline", ""),
             "🆕 Новий",
             data.get("note", ""),
             data.get("photo", ""),
-            data.get("sketch", "")              # T Референс — фото-зразок, за яким шиємо
+            data.get("sketch", "")
         ])
 
         response = jsonify({"status": "ok", "order_num": num})
@@ -1046,15 +1071,12 @@ def update_tailor():
 
 # ══════════════════════════════════════════════════════════════════════
 #  ПРАЙС
-#  Лист "Прайс": A категорія | B (службова) | C відділ | D послуга |
-#                E одиниця | F ціна | + колонка "Активна" (шукається за назвою)
 # ══════════════════════════════════════════════════════════════════════
 def _price_sheet(sh):
     return sh.worksheet("Прайс")
 
 
 def _active_col_index(rows):
-    """Шукає колонку 'Активна' у шапці. Повертає 1-based індекс або None."""
     if not rows:
         return None
     header = rows[0]
@@ -1065,7 +1087,6 @@ def _active_col_index(rows):
 
 
 def _term_col_index(rows):
-    """Шукає колонку терміну ('Термін'/'Строк'/'Срок'/'…виконання') у шапці."""
     if not rows:
         return None
     header = rows[0]
@@ -1077,7 +1098,6 @@ def _term_col_index(rows):
 
 
 def _find_price_row(rows, category, dept, service):
-    """Знаходить 1-based номер рядка за категорією, відділом і назвою послуги."""
     for i, row in enumerate(rows):
         if i == 0:
             continue
@@ -1156,7 +1176,6 @@ def price_add():
         ws = _price_sheet(sh)
         rows = ws.get_all_values()
 
-        # Службову колонку B копіюємо з існуючого рядка тієї ж категорії
         col_b = ""
         width = len(rows[0]) if rows else 6
         for i, row in enumerate(rows):
@@ -1220,7 +1239,7 @@ def price_delete():
 
 
 # ══════════════════════════════════════════════════════════════════════
-#  НАЛАШТУВАННЯ (лист "Налаштування": ключ у колонці A, значення у B)
+#  НАЛАШТУВАННЯ
 # ══════════════════════════════════════════════════════════════════════
 @app.route("/settings/update", methods=["POST", "OPTIONS"])
 def settings_update():
@@ -1232,7 +1251,7 @@ def settings_update():
         return response
     try:
         data = request.get_json()
-        items = data.get("items", {})  # { "Бонус %": 3, ... }
+        items = data.get("items", {})
 
         client = get_sheets_client()
         sh = client.open_by_key(SHEET_ID)
@@ -1261,7 +1280,7 @@ def settings_update():
 
 
 # ══════════════════════════════════════════════════════════════════════
-#  БРЕНДИ (лист "Бренди": один стовпець A, заголовок "Бренд")
+#  БРЕНДИ
 # ══════════════════════════════════════════════════════════════════════
 @app.route("/brands/add", methods=["POST", "OPTIONS"])
 def brands_add():
@@ -1313,7 +1332,7 @@ def brands_add():
 
 
 # ══════════════════════════════════════════════════════════════════════
-#  КОЛЬОРИ (лист "Кольори": один стовпець A, заголовок "Колір")
+#  КОЛЬОРИ
 # ══════════════════════════════════════════════════════════════════════
 @app.route("/colors/add", methods=["POST", "OPTIONS"])
 def colors_add():
