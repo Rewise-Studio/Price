@@ -652,12 +652,12 @@ def update_order():
 
 
 # ══════════════════════════════════════════════════════════════════════
-#  ВИДАЛЕННЯ ЗАМОВЛЕННЯ (м'яке — статус "🗑 Видалено", рядки НЕ стираються)
-#  Замовлення: колонка H (8) Статус.
-#  Вироби: колонка G (7) Статус — теж помічаємо, щоб не висіли "в роботі" тощо.
-#  Дані лишаються у таблиці — операція оборотна вручну через Google Sheets.
+#  ВИДАЛЕННЯ / ВІДНОВЛЕННЯ ЗАМОВЛЕННЯ (м'яке)
+#  Позначка зберігається в Примітці (колонка I), а не в Статусі —
+#  так оригінальний статус замовлення і виробів НЕ втрачається,
+#  і відновлення повертає замовлення точно туди, де воно було.
 # ══════════════════════════════════════════════════════════════════════
-DELETED_STATUS = "🗑 Видалено"
+DELETED_MARKER = "[ВИДАЛЕНО] "
 
 @app.route("/order/delete", methods=["POST", "OPTIONS"])
 def delete_order():
@@ -677,34 +677,62 @@ def delete_order():
 
         client = get_sheets_client()
         sh = client.open_by_key(SHEET_ID)
+        ws = sh.worksheet("Замовлення")
+        rows = ws.get_all_values()
 
-        # Замовлення — позначаємо статус
-        ws_orders = sh.worksheet("Замовлення")
-        order_rows = ws_orders.get_all_values()
-        found_order = False
-        for i, row in enumerate(order_rows):
+        found = False
+        for i, row in enumerate(rows):
             if len(row) > 0 and row[0] == order_num:
-                ws_orders.update_cell(i + 1, 8, DELETED_STATUS)
-                found_order = True
+                note = row[8] if len(row) > 8 else ""
+                if not note.startswith(DELETED_MARKER):
+                    ws.update_cell(i + 1, 9, DELETED_MARKER + note)
+                found = True
                 break
 
-        if not found_order:
+        if not found:
             response = jsonify({"status": "error", "message": "Замовлення не знайдено"})
             response.headers["Access-Control-Allow-Origin"] = "*"
             return response, 404
-
-        # Вироби цього замовлення — теж позначаємо, щоб не рахувались "в роботі"/"готово"
-        ws_items = sh.worksheet("Вироби")
-        item_rows = ws_items.get_all_values()
-        for i, row in enumerate(item_rows):
-            if len(row) > 0 and row[0] == order_num:
-                ws_items.update_cell(i + 1, 7, DELETED_STATUS)
 
         response = jsonify({"status": "ok"})
         response.headers["Access-Control-Allow-Origin"] = "*"
         return response
     except Exception as e:
         logger.error(f"Error deleting order: {e}")
+        response = jsonify({"status": "error", "message": str(e)})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response, 500
+
+
+@app.route("/order/restore", methods=["POST", "OPTIONS"])
+def restore_order():
+    if request.method == "OPTIONS":
+        response = app.make_default_options_response()
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+    try:
+        data = request.get_json()
+        order_num = data.get("order_num", "")
+
+        client = get_sheets_client()
+        sh = client.open_by_key(SHEET_ID)
+        ws = sh.worksheet("Замовлення")
+        rows = ws.get_all_values()
+
+        for i, row in enumerate(rows):
+            if len(row) > 0 and row[0] == order_num:
+                note = row[8] if len(row) > 8 else ""
+                if note.startswith(DELETED_MARKER):
+                    ws.update_cell(i + 1, 9, note[len(DELETED_MARKER):])
+                break
+
+        response = jsonify({"status": "ok"})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response
+    except Exception as e:
+        logger.error(f"Error restoring order: {e}")
         response = jsonify({"status": "error", "message": str(e)})
         response.headers["Access-Control-Allow-Origin"] = "*"
         return response, 500
