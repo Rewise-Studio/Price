@@ -321,6 +321,7 @@ def mark_notified():
         data = request.get_json()
         item_num = data.get("item_num", "")
         notified = data.get("notified", True)
+        notified_by = data.get("notified_by", "")
 
         client = get_sheets_client()
         sh = client.open_by_key(SHEET_ID)
@@ -330,7 +331,13 @@ def mark_notified():
 
         for i, row in enumerate(all_rows):
             if len(row) > 1 and row[1] == item_num:
-                ws.update_cell(i + 1, 12, val)  # L
+                ws.update_cell(i + 1, 12, val)  # L — Сповіщено (дата/час)
+                # T (20) — Хто сповістив; заповнюємо лише при позначенні,
+                # при знятті позначки (адмін) лишаємо як є для історії
+                if notified and notified_by:
+                    ws.update_cell(i + 1, 20, notified_by)
+                elif not notified:
+                    ws.update_cell(i + 1, 20, "")
                 break
 
         response = jsonify({"status": "ok", "value": val})
@@ -630,9 +637,12 @@ def update_order():
         ws = sh.worksheet("Замовлення")
         all_rows = ws.get_all_values()
 
+        # Колонки 19 (S) і 20 (T) — нові поля клієнта (день народження, пошта),
+        # раніше в таблиці не використовувались; додано без зсуву існуючих колонок.
         field_cols = {
             "client": 4, "phone": 5, "payment": 6, "deadline": 7,
-            "note": 9, "messenger": 10, "prepayMethod": 11
+            "note": 9, "messenger": 10, "prepayMethod": 11,
+            "birthday": 19, "mailAddress": 20
         }
         for i, row in enumerate(all_rows):
             if len(row) > 0 and row[0] == order_num:
@@ -1324,13 +1334,13 @@ def settings_update():
         rows = ws.get_all_values()
 
         for key, value in items.items():
-            found = None
+            found_rows = []
             for i, row in enumerate(rows):
                 if len(row) > 0 and str(row[0]).strip() == key:
-                    found = i + 1
-                    break
-            if found:
-                ws.update_cell(found, 2, str(value))
+                    found_rows.append(i + 1)
+            if found_rows:
+                for row_num in found_rows:
+                    ws.update_cell(row_num, 2, str(value))
             else:
                 ws.append_row([key, str(value)])
 
