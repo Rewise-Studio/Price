@@ -158,10 +158,18 @@ def create_order():
         #          I Дата в роботі | J Дата готово | K Дата видачі | L Сповіщено
         ws_items = sh.worksheet("Вироби")
         now_str = datetime.now().strftime("%d.%m.%Y %H:%M")
+        # Лист «Послуги» — по рядку на кожну послугу кожного виробу.
+        # Номер послуги: {order}-{item}-{svc} (напр. RW-0041-1-2). Може бути відсутнім
+        # у старих версіях таблиці — тому обгортаємо в try, щоб не ламати створення.
+        try:
+            ws_svc = sh.worksheet("Послуги")
+        except Exception:
+            ws_svc = None
         for i, item in enumerate(data.get("items", []), 1):
+            item_num = f"{order_num}-{i}"
             ws_items.append_row([
                 order_num,
-                f"{order_num}-{i}",
+                item_num,
                 item.get("type", ""),
                 item.get("brand", ""),
                 item.get("services", ""),
@@ -178,6 +186,22 @@ def create_order():
                 data.get("delivery", ""),         # R Доставка
                 item.get("note", "")              # S Коментар
             ])
+            # Деталізовані послуги (якщо фронтенд передав масив serviceList)
+            if ws_svc is not None:
+                svc_list = item.get("serviceList", [])
+                for j, svc in enumerate(svc_list, 1):
+                    # A Номер послуги | B Номер виробу | C Номер замовлення |
+                    # D Назва | E Ціна | F Статус | G Майстер |
+                    # H Дата в роботі | I Дата готово | J Хто видав | K Дата видачі
+                    ws_svc.append_row([
+                        f"{item_num}-{j}",
+                        item_num,
+                        order_num,
+                        svc.get("name", ""),
+                        svc.get("price", ""),
+                        "🆕 Новий",
+                        "", "", "", "", ""
+                    ])
 
         response = jsonify({"status": "ok", "order_num": order_num})
         response.headers["Access-Control-Allow-Origin"] = "*"
@@ -225,8 +249,6 @@ def update_status():
                         ws.update_cell(i + 1, 13, master)   # M Майстер
                 elif status == "✅ Готово":
                     ws.update_cell(i + 1, 10, now_str)
-                    if master:
-                        ws.update_cell(i + 1, 21, master)   # U Хто відмітив готовність
                 elif status == "📦 Виданий":
                     ws.update_cell(i + 1, 11, now_str)
                     if master:
@@ -270,6 +292,83 @@ def update_status():
         return response
     except Exception as e:
         logger.error(f"Error updating status: {e}")
+        response = jsonify({"status": "error", "message": str(e)})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response, 500
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  СТАТУС ОКРЕМОЇ ПОСЛУГИ
+#  Лист «Послуги»: A Номер послуги | B Номер виробу | C Номер замовлення |
+#  D Назва | E Ціна | F Статус | G Майстер | H Дата в роботі |
+#  I Дата готово | J Хто видав | K Дата видачі
+#  Статус виробу автоматично підтягується з статусів його послуг.
+# ══════════════════════════════════════════════════════════════════════
+@app.route("/service/status", methods=["POST", "OPTIONS"])
+def service_status():
+    if request.method == "OPTIONS":
+        response = app.make_default_options_response()
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+    try:
+        data = request.get_json()
+        svc_num = data.get("svc_num", "")
+        status = data.get("status", "")
+        master = data.get("master", "")
+
+        client = get_sheets_client()
+        sh = client.open_by_key(SHEET_ID)
+        ws_svc = sh.worksheet("Послуги")
+        rows = ws_svc.get_all_values()
+        now_str = datetime.now().strftime("%d.%m.%Y %H:%M")
+
+        item_num = ""
+        for i, row in enumerate(rows):
+            if len(row) > 0 and row[0] == svc_num:
+                item_num = row[1] if len(row) > 1 else ""
+                ws_svc.update_cell(i + 1, 6, status)          # F Статус
+                if status == "⚙️ В роботі":
+                    if master:
+                        ws_svc.update_cell(i + 1, 7, master)  # G Майстер
+                    ws_svc.update_cell(i + 1, 8, now_str)     # H Дата в роботі
+                elif status == "✅ Готово":
+                    ws_svc.update_cell(i + 1, 9, now_str)     # I Дата готово
+                break
+
+        # Підтягуємо статус виробу зі статусів усіх його послуг
+        if item_num:
+            svc_statuses = [r[5] for r in rows
+                            if len(r) > 5 and len(r) > 1 and r[1] == item_num and r[0] != svc_num]
+            svc_statuses.append(status)
+
+            def item_status(sts):
+                if not sts:
+                    return "🆕 Новий"
+                if all(s == "✅ Готово" for s in sts):
+                    return "✅ Готово"
+                if any(s == "⚙️ В роботі" or s == "✅ Готово" for s in sts):
+                    return "⚙️ В роботі"
+                return "🆕 Новий"
+
+            new_item_status = item_status(svc_statuses)
+            ws_items = sh.worksheet("Вироби")
+            item_rows = ws_items.get_all_values()
+            for i, row in enumerate(item_rows):
+                if len(row) > 1 and row[1] == item_num:
+                    # Не відкочуємо «Виданий» назад
+                    if len(row) > 6 and row[6] != "📦 Виданий":
+                        ws_items.update_cell(i + 1, 7, new_item_status)
+                        if new_item_status == "✅ Готово":
+                            ws_items.update_cell(i + 1, 10, now_str)  # J Дата готово
+                    break
+
+        response = jsonify({"status": "ok"})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response
+    except Exception as e:
+        logger.error(f"Error updating service status: {e}")
         response = jsonify({"status": "error", "message": str(e)})
         response.headers["Access-Control-Allow-Origin"] = "*"
         return response, 500
