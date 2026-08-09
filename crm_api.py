@@ -225,6 +225,8 @@ def update_status():
                         ws.update_cell(i + 1, 13, master)   # M Майстер
                 elif status == "✅ Готово":
                     ws.update_cell(i + 1, 10, now_str)
+                    if master:
+                        ws.update_cell(i + 1, 21, master)   # U Хто відмітив готовність
                 elif status == "📦 Виданий":
                     ws.update_cell(i + 1, 11, now_str)
                     if master:
