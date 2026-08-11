@@ -1417,6 +1417,33 @@ def price_delete():
 # ══════════════════════════════════════════════════════════════════════
 #  НАЛАШТУВАННЯ
 # ══════════════════════════════════════════════════════════════════════
+@app.route("/settings/get", methods=["GET", "OPTIONS"])
+def settings_get():
+    if request.method == "OPTIONS":
+        response = app.make_default_options_response()
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+    try:
+        client = get_sheets_client()
+        sh = client.open_by_key(SHEET_ID)
+        ws = sh.worksheet("Налаштування")
+        rows = ws.get_all_values()
+        items = {}
+        for row in rows:
+            if len(row) > 0 and str(row[0]).strip():
+                items[str(row[0]).strip()] = str(row[1]).strip() if len(row) > 1 else ""
+        response = jsonify({"status": "ok", "items": items})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response
+    except Exception as e:
+        logger.error(f"Error reading settings: {e}")
+        response = jsonify({"status": "error", "message": str(e)})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response, 500
+
+
 @app.route("/settings/update", methods=["POST", "OPTIONS"])
 def settings_update():
     if request.method == "OPTIONS":
