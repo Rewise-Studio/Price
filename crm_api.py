@@ -1586,6 +1586,159 @@ def colors_add():
         return response, 500
 
 
+# ══════════════════════════════════════════════════════════════════════
+#  ПРОЦЕСИ І ЧАС
+# ══════════════════════════════════════════════════════════════════════
+
+@app.route("/rate", methods=["POST", "OPTIONS"])
+def save_rate():
+    if request.method == "OPTIONS":
+        response = app.make_default_options_response()
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+    try:
+        data = request.get_json()
+        dept = data.get("dept", "").strip()
+        rate = float(data.get("rate", 0) or 0)
+
+        client = get_sheets_client()
+        sh = client.open_by_key(SHEET_ID)
+        ws = sh.worksheet("Ставки")
+        all_rows = ws.get_all_values()
+
+        found = False
+        for i, row in enumerate(all_rows):
+            if i == 0:
+                continue
+            if len(row) > 0 and row[0].strip() == dept:
+                ws.update_cell(i + 1, 2, rate)
+                found = True
+                break
+        if not found:
+            ws.append_row([dept, rate])
+
+        response = jsonify({"status": "ok"})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response
+    except Exception as e:
+        logger.error(f"Error saving rate: {e}")
+        response = jsonify({"status": "error", "message": str(e)})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response, 500
+
+
+@app.route("/process/dict", methods=["POST", "OPTIONS"])
+def process_dict_add():
+    if request.method == "OPTIONS":
+        response = app.make_default_options_response()
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+    try:
+        data = request.get_json()
+        proc = data.get("proc", "").strip()
+        dept = data.get("dept", "").strip()
+        if not proc:
+            response = jsonify({"status": "ok", "added": 0})
+            response.headers["Access-Control-Allow-Origin"] = "*"
+            return response
+
+        client = get_sheets_client()
+        sh = client.open_by_key(SHEET_ID)
+        ws = sh.worksheet("Процеси_Довідник")
+        all_rows = ws.get_all_values()
+
+        existing = set()
+        for i, row in enumerate(all_rows):
+            if i == 0:
+                continue
+            if len(row) > 0 and str(row[0]).strip():
+                existing.add(str(row[0]).strip().lower())
+
+        added = 0
+        if proc.lower() not in existing:
+            ws.append_row([proc, dept])
+            added = 1
+
+        response = jsonify({"status": "ok", "added": added})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response
+    except Exception as e:
+        logger.error(f"Error adding process to dict: {e}")
+        response = jsonify({"status": "error", "message": str(e)})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response, 500
+
+
+@app.route("/processes", methods=["POST", "OPTIONS"])
+def save_processes():
+    if request.method == "OPTIONS":
+        response = app.make_default_options_response()
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+    try:
+        data = request.get_json()
+        service = data.get("service", "").strip()
+        procs = data.get("procs", []) or []
+
+        client = get_sheets_client()
+        sh = client.open_by_key(SHEET_ID)
+        now_str = datetime.now().strftime("%d.%m.%Y %H:%M")
+
+        # 1) Поповнити довідник новими процесами (назва + відділ)
+        ws_dict = sh.worksheet("Процеси_Довідник")
+        dict_rows = ws_dict.get_all_values()
+        existing = set()
+        for i, row in enumerate(dict_rows):
+            if i == 0:
+                continue
+            if len(row) > 0 and str(row[0]).strip():
+                existing.add(str(row[0]).strip().lower())
+        for p in procs:
+            pname = str(p.get("proc", "")).strip()
+            pdept = str(p.get("dept", "")).strip()
+            if pname and pname.lower() not in existing:
+                ws_dict.append_row([pname, pdept])
+                existing.add(pname.lower())
+
+        # 2) Перезапис процесів послуги (варіант А): видалити старі рядки послуги
+        ws = sh.worksheet("Послуга_Процеси")
+        all_rows = ws.get_all_values()
+        to_delete = []
+        for i, row in enumerate(all_rows):
+            if i == 0:
+                continue
+            if len(row) > 0 and row[0].strip() == service:
+                to_delete.append(i + 1)
+        for idx in sorted(to_delete, reverse=True):
+            ws.delete_rows(idx)
+
+        # 3) Дописати нові рядки послуги в порядку
+        count = 0
+        for p in procs:
+            pname = str(p.get("proc", "")).strip()
+            if not pname:
+                continue
+            pmin = int(p.get("min", 0) or 0)
+            pdesc = str(p.get("desc", "") or "")
+            ws.append_row([service, pname, pmin, pdesc, now_str])
+            count += 1
+
+        response = jsonify({"status": "ok", "count": count})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response
+    except Exception as e:
+        logger.error(f"Error saving processes: {e}")
+        response = jsonify({"status": "error", "message": str(e)})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response, 500
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
