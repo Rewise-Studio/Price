@@ -1245,6 +1245,85 @@ def update_tailor():
         return response, 500
 
 
+@app.route("/tailor/delete", methods=["POST", "OPTIONS"])
+def delete_tailor():
+    if request.method == "OPTIONS":
+        response = app.make_default_options_response()
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+    try:
+        data = request.get_json()
+        order_num = data.get("order_num", "")
+        if not order_num:
+            response = jsonify({"status": "error", "message": "order_num обов'язковий"})
+            response.headers["Access-Control-Allow-Origin"] = "*"
+            return response, 400
+
+        client = get_sheets_client()
+        sh = client.open_by_key(SHEET_ID)
+        ws = sh.worksheet("Виготовлення")
+        rows = ws.get_all_values()
+
+        found = False
+        for i, row in enumerate(rows):
+            if len(row) > 0 and row[0] == order_num:
+                note = row[17] if len(row) > 17 else ""
+                if not note.startswith(DELETED_MARKER):
+                    ws.update_cell(i + 1, 18, DELETED_MARKER + note)
+                found = True
+                break
+
+        if not found:
+            response = jsonify({"status": "error", "message": "Замовлення не знайдено"})
+            response.headers["Access-Control-Allow-Origin"] = "*"
+            return response, 404
+
+        response = jsonify({"status": "ok"})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response
+    except Exception as e:
+        logger.error(f"Error deleting tailor order: {e}")
+        response = jsonify({"status": "error", "message": str(e)})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response, 500
+
+
+@app.route("/tailor/restore", methods=["POST", "OPTIONS"])
+def restore_tailor():
+    if request.method == "OPTIONS":
+        response = app.make_default_options_response()
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+    try:
+        data = request.get_json()
+        order_num = data.get("order_num", "")
+
+        client = get_sheets_client()
+        sh = client.open_by_key(SHEET_ID)
+        ws = sh.worksheet("Виготовлення")
+        rows = ws.get_all_values()
+
+        for i, row in enumerate(rows):
+            if len(row) > 0 and row[0] == order_num:
+                note = row[17] if len(row) > 17 else ""
+                if note.startswith(DELETED_MARKER):
+                    ws.update_cell(i + 1, 18, note[len(DELETED_MARKER):])
+                break
+
+        response = jsonify({"status": "ok"})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response
+    except Exception as e:
+        logger.error(f"Error restoring tailor order: {e}")
+        response = jsonify({"status": "error", "message": str(e)})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response, 500
+
+
 # ══════════════════════════════════════════════════════════════════════
 #  ПРАЙС
 # ══════════════════════════════════════════════════════════════════════
