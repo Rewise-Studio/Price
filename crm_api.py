@@ -1273,6 +1273,17 @@ def _term_col_index(rows):
     return None
 
 
+def _from_col_index(rows):
+    if not rows:
+        return None
+    header = rows[0]
+    for i, name in enumerate(header):
+        lbl = str(name).strip().lower()
+        if lbl == "від" or "від" in lbl:
+            return i + 1
+    return None
+
+
 def _find_price_row(rows, category, dept, service):
     for i, row in enumerate(rows):
         if i == 0:
@@ -1320,6 +1331,10 @@ def price_update():
             tcol = _term_col_index(rows)
             if tcol:
                 ws.update_cell(row, tcol, str(data.get("term", "")))
+        if "from" in data:
+            fcol = _from_col_index(rows)
+            if fcol:
+                ws.update_cell(row, fcol, "так" if data["from"] else "ні")
 
         response = jsonify({"status": "ok"})
         response.headers["Access-Control-Allow-Origin"] = "*"
@@ -1372,6 +1387,11 @@ def price_add():
             while len(new_row) < term_col:
                 new_row.append("")
             new_row[term_col - 1] = str(data.get("term", ""))
+        from_col = _from_col_index(rows)
+        if from_col:
+            while len(new_row) < from_col:
+                new_row.append("")
+            new_row[from_col - 1] = "так" if data.get("from") else ""
 
         ws.append_row(new_row)
 
