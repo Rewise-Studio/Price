@@ -374,6 +374,39 @@ def service_status():
         return response, 500
 
 
+@app.route("/service/assign", methods=["POST", "OPTIONS"])
+def service_assign():
+    if request.method == "OPTIONS":
+        response = app.make_default_options_response()
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+    try:
+        data = request.get_json()
+        svc_num = data.get("svc_num", "")
+        assigned = data.get("assigned", "")
+
+        client = get_sheets_client()
+        sh = client.open_by_key(SHEET_ID)
+        ws_svc = sh.worksheet("Послуги")
+        rows = ws_svc.get_all_values()
+
+        for i, row in enumerate(rows):
+            if len(row) > 0 and row[0] == svc_num:
+                ws_svc.update_cell(i + 1, 12, assigned)  # L Призначено
+                break
+
+        response = jsonify({"status": "ok"})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response
+    except Exception as e:
+        logger.error(f"Error assigning service: {e}")
+        response = jsonify({"status": "error", "message": str(e)})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response, 500
+
+
 @app.route("/note", methods=["POST", "OPTIONS"])
 def update_note():
     if request.method == "OPTIONS":
