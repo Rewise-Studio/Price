@@ -5,6 +5,7 @@ import requests
 from datetime import datetime
 from flask import Flask, request, jsonify
 import gspread
+from gspread.utils import rowcol_to_a1
 from google.oauth2.service_account import Credentials
 
 logging.basicConfig(level=logging.INFO)
@@ -754,6 +755,15 @@ def update_economics():
 # ══════════════════════════════════════════════════════════════════════
 #  РЕДАГУВАННЯ ЗАМОВЛЕННЯ (клієнт / оплата / термін)
 # ══════════════════════════════════════════════════════════════════════
+def _write_field(ws, row, col, field, value):
+    """Запис одного поля. Телефон пишемо як ТЕКСТ (RAW): update_cell працює в режимі
+    USER_ENTERED, і Sheets сприймає «+380 …» як формулу, у клітинці з'являється #ERROR!"""
+    if field == "phone":
+        ws.batch_update([{"range": rowcol_to_a1(row, col), "values": [[str(value)]]}], raw=True)
+    else:
+        ws.update_cell(row, col, value)
+
+
 @app.route("/order/update", methods=["POST", "OPTIONS"])
 def update_order():
     if request.method == "OPTIONS":
@@ -782,7 +792,7 @@ def update_order():
             if len(row) > 0 and row[0] == order_num:
                 for field, col in field_cols.items():
                     if field in data:
-                        ws.update_cell(i + 1, col, data[field])
+                        _write_field(ws, i + 1, col, field, data[field])
                 break
 
         response = jsonify({"status": "ok"})
@@ -922,14 +932,78 @@ def update_master_note():
 # ══════════════════════════════════════════════════════════════════════
 #  РЕДАГУВАННЯ ВИРОБІВ ЗАМОВЛЕННЯ
 # ══════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════════
+#  ВИРОБИ ТА ПОСЛУГИ: редагування цін і складу замовлення
+#  Лист «Вироби»: A Замовлення | B Номер виробу | C Тип | D Бренд | E Послуги |
+#     F Сума | G Статус | H..L дати/сповіщено | M Майстер | N Хто видав |
+#     O Колір | P Матеріал | Q Стан | R Доставка | S Коментар
+#  Лист «Послуги»: A Номер послуги | B Номер виробу | C Номер замовлення |
+#     D Назва | E Ціна | F Статус | G Майстер | H В роботі | I Готово | ...
+#  Сума виробу = сума цін його послуг (якщо у виробу є рядки в «Послуги»).
+# ══════════════════════════════════════════════════════════════════════
+def _fmt_total(n):
+    return f"{int(n):,}".replace(",", " ") + " ₴"
+
+
+def _suffix_num(num):
+    tail = str(num).rsplit("-", 1)[-1]
+    return int(tail) if tail.isdigit() else 0
+
+
+def _svc_item_status(statuses):
+    if not statuses:
+        return "🆕 Новий"
+    if all(x == "✅ Готово" for x in statuses):
+        return "✅ Готово"
+    if any(x in ("⚙️ В роботі", "✅ Готово") for x in statuses):
+        return "⚙️ В роботі"
+    return "🆕 Новий"
+
+
+def _recalc_item_from_services(sh, item_num, fix_status=False):
+    """Перераховує «Послуги» (текст) і «Суму» виробу з листа «Послуги».
+    Повертає (сума, True) або (None, False), якщо у виробу немає рядків послуг."""
+    ws_svc = sh.worksheet("Послуги")
+    svc_rows = [r for r in ws_svc.get_all_values()[1:] if len(r) > 1 and r[1] == item_num]
+    if not svc_rows:
+        return None, False
+    total = sum(_extract_amount(r[4]) if len(r) > 4 else 0 for r in svc_rows)
+    names = ", ".join(r[3] for r in svc_rows if len(r) > 3 and r[3])
+    ws_items = sh.worksheet("Вироби")
+    item_rows = ws_items.get_all_values()
+    for i, row in enumerate(item_rows):
+        if len(row) > 1 and row[1] == item_num:
+            r = i + 1
+            ws_items.batch_update([
+                {"range": f"E{r}:F{r}", "values": [[names, _fmt_total(total)]]}
+            ], raw=True)
+            if fix_status and len(row) > 6 and row[6] != "📦 Виданий":
+                ws_items.update_cell(r, 7, _svc_item_status([x[5] if len(x) > 5 else "" for x in svc_rows]))
+            break
+    return total, True
+
+
+def _cors(response):
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    return response
+
+
+def _preflight():
+    response = app.make_default_options_response()
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    return response
+
+
 @app.route("/items/update", methods=["POST", "OPTIONS"])
 def update_items():
+    """Оновлює склад виробів замовлення НА МІСЦІ: не видаляє рядки і не чіпає
+    колонки M..S (майстер, колір, матеріал, стан, доставка, коментар).
+    Виріб ідентифікується за item_num; без нього — за позицією (старий формат).
+    Якщо у виробу є деталізовані послуги — текст і сума беруться з листа «Послуги»."""
     if request.method == "OPTIONS":
-        response = app.make_default_options_response()
-        response.headers["Access-Control-Allow-Origin"] = "*"
-        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
-        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
-        return response
+        return _preflight()
     try:
         data = request.get_json()
         order_num = data.get("order_num", "")
@@ -938,42 +1012,278 @@ def update_items():
         client = get_sheets_client()
         sh = client.open_by_key(SHEET_ID)
         ws = sh.worksheet("Вироби")
+        ws_svc = sh.worksheet("Послуги")
         all_rows = ws.get_all_values()
+        svc_all = ws_svc.get_all_values()
 
-        existing = {}
-        for row in all_rows[1:]:
-            if len(row) > 1 and row[0] == order_num:
-                existing[row[1]] = row
-
-        for i in range(len(all_rows) - 1, 0, -1):
-            if len(all_rows[i]) > 0 and all_rows[i][0] == order_num:
-                ws.delete_rows(i + 1)
+        existing = {}      # item_num -> (номер рядка в таблиці, рядок)
+        for i, row in enumerate(all_rows):
+            if i > 0 and len(row) > 1 and row[0] == order_num:
+                existing[row[1]] = (i + 1, row)
+        has_svc = {r[1] for r in svc_all[1:] if len(r) > 1}
+        next_n = max([_suffix_num(k) for k in existing] + [0]) + 1
+        delivery = ""
+        for _, (_, row) in existing.items():
+            if len(row) > 17 and row[17]:
+                delivery = row[17]
+                break
 
         now_str = datetime.now().strftime("%d.%m.%Y %H:%M")
+        keep, updates, appends = set(), [], []
         for idx, item in enumerate(items, 1):
-            item_num = f"{order_num}-{idx}"
-            old = existing.get(item_num)
-            status = old[6] if old and len(old) > 6 else "🆕 Новий"
-            d_in = old[7] if old and len(old) > 7 else now_str
-            d_work = old[8] if old and len(old) > 8 else ""
-            d_ready = old[9] if old and len(old) > 9 else ""
-            d_issued = old[10] if old and len(old) > 10 else ""
-            notified = old[11] if old and len(old) > 11 else ""
-            ws.append_row([
-                order_num, item_num,
-                item.get("type", ""), item.get("brand", ""),
-                item.get("services", ""), item.get("total", ""),
-                status, d_in, d_work, d_ready, d_issued, notified
-            ])
+            num = item.get("item_num") or f"{order_num}-{idx}"
+            if num in existing:
+                keep.add(num)
+                rown, row = existing[num]
+                services = item.get("services", "")
+                total = item.get("total", "")
+                if num in has_svc:     # склад і суму визначають послуги
+                    services = row[4] if len(row) > 4 else services
+                    total = row[5] if len(row) > 5 else total
+                updates.append({"range": f"C{rown}:F{rown}",
+                                "values": [[item.get("type", ""), item.get("brand", ""), services, total]]})
+            else:
+                if item.get("item_num") or num in existing:
+                    num = f"{order_num}-{next_n}"
+                    next_n += 1
+                keep.add(num)
+                appends.append([
+                    order_num, num, item.get("type", ""), item.get("brand", ""),
+                    item.get("services", ""), item.get("total", ""),
+                    "🆕 Новий", now_str, "", "", "", "", "", "",
+                    "", "", "", delivery, ""
+                ])
 
-        response = jsonify({"status": "ok"})
-        response.headers["Access-Control-Allow-Origin"] = "*"
-        return response
+        if updates:
+            ws.batch_update(updates, raw=True)
+
+        removed = [k for k in existing if k not in keep]
+        for k in sorted(removed, key=lambda x: existing[x][0], reverse=True):
+            ws.delete_rows(existing[k][0])
+        if removed:       # прибираємо «осиротілі» послуги видалених виробів
+            for i in range(len(svc_all) - 1, 0, -1):
+                if len(svc_all[i]) > 1 and svc_all[i][1] in removed:
+                    ws_svc.delete_rows(i + 1)
+
+        for row in appends:
+            ws.append_row(row, value_input_option="RAW")
+
+        return _cors(jsonify({"status": "ok"}))
     except Exception as e:
         logger.error(f"Error updating items: {e}")
-        response = jsonify({"status": "error", "message": str(e)})
-        response.headers["Access-Control-Allow-Origin"] = "*"
-        return response, 500
+        return _cors(jsonify({"status": "error", "message": str(e)})), 500
+
+
+@app.route("/service/price", methods=["POST", "OPTIONS"])
+def service_price():
+    """Змінює ціну однієї послуги і перераховує суму її виробу."""
+    if request.method == "OPTIONS":
+        return _preflight()
+    try:
+        data = request.get_json()
+        svc_num = data.get("svc_num", "")
+        price = int(data.get("price"))
+        if price < 0:
+            raise ValueError("price < 0")
+
+        client = get_sheets_client()
+        sh = client.open_by_key(SHEET_ID)
+        ws_svc = sh.worksheet("Послуги")
+        rows = ws_svc.get_all_values()
+        item_num = ""
+        for i, row in enumerate(rows):
+            if len(row) > 1 and row[0] == svc_num:
+                item_num = row[1]
+                ws_svc.update_cell(i + 1, 5, price)      # E Ціна
+                break
+        if not item_num:
+            return _cors(jsonify({"status": "error", "message": "service not found"})), 404
+
+        total, _ = _recalc_item_from_services(sh, item_num)
+        return _cors(jsonify({"status": "ok", "item_num": item_num,
+                              "item_total": _fmt_total(total or 0)}))
+    except Exception as e:
+        logger.error(f"Error updating service price: {e}")
+        return _cors(jsonify({"status": "error", "message": str(e)})), 500
+
+
+@app.route("/service/add", methods=["POST", "OPTIONS"])
+def service_add():
+    """Додає послугу до виробу (доробка) і перераховує суму та статус виробу."""
+    if request.method == "OPTIONS":
+        return _preflight()
+    try:
+        data = request.get_json()
+        item_num = data.get("item_num", "")
+        name = str(data.get("name", "")).strip()
+        price = int(data.get("price") or 0)
+        if not name or price < 0:
+            raise ValueError("name/price")
+
+        client = get_sheets_client()
+        sh = client.open_by_key(SHEET_ID)
+        ws_svc = sh.worksheet("Послуги")
+        rows = ws_svc.get_all_values()
+        mine = [r for r in rows[1:] if len(r) > 1 and r[1] == item_num]
+        if not mine:
+            return _cors(jsonify({"status": "error", "message": "item has no detailed services"})), 400
+        order_num = mine[0][2] if len(mine[0]) > 2 else item_num.rsplit("-", 1)[0]
+        next_j = max(_suffix_num(r[0]) for r in mine) + 1
+        svc_num = f"{item_num}-{next_j}"
+        ws_svc.append_row([svc_num, item_num, order_num, name, price, "🆕 Новий",
+                           "", "", "", "", ""], value_input_option="RAW")
+
+        total, _ = _recalc_item_from_services(sh, item_num, fix_status=True)
+        return _cors(jsonify({"status": "ok", "svc_num": svc_num,
+                              "item_total": _fmt_total(total or 0)}))
+    except Exception as e:
+        logger.error(f"Error adding service: {e}")
+        return _cors(jsonify({"status": "error", "message": str(e)})), 500
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  РОЗДІЛЕННЯ ЗАМОВЛЕННЯ: частина виробів переходить у нове замовлення RW-0066/2
+#  Номери виробів і послуг НЕ змінюються, змінюється лише номер замовлення
+#  (колонка A у «Вироби», колонка C у «Послуги»). Нове замовлення: копія рядка клієнта.
+#  Спочатку перевіряємо все, потім пишемо; при помилці запису робимо відкат.
+# ══════════════════════════════════════════════════════════════════════
+def _order_status_from(sts):
+    if not sts:
+        return "🆕 Новий"
+    issued = sum(1 for x in sts if x == "📦 Виданий")
+    if issued == len(sts):
+        return "📦 Виданий"
+    if issued > 0:
+        return "🔸 Частково видано"
+    if any(x == "✅ Готово" for x in sts):
+        return "✅ Готово"
+    if any(x == "⚙️ В роботі" for x in sts):
+        return "⚙️ В роботі"
+    return "🆕 Новий"
+
+
+@app.route("/order/split", methods=["POST", "OPTIONS"])
+def order_split():
+    if request.method == "OPTIONS":
+        return _preflight()
+    done = {"new_row": None, "items": [], "svc": [], "orig_pay": None}
+    sh = None
+    try:
+        data = request.get_json()
+        order_num = data.get("order_num", "")
+        move = [str(x) for x in data.get("item_nums", [])]
+        deadline = str(data.get("deadline", "") or "")
+        transfer = int(data.get("transfer_prepay") or 0)
+
+        client = get_sheets_client()
+        sh = client.open_by_key(SHEET_ID)
+        ws_o = sh.worksheet("Замовлення")
+        ws_i = sh.worksheet("Вироби")
+        ws_s = sh.worksheet("Послуги")
+        orows = ws_o.get_all_values()
+        irows = ws_i.get_all_values()
+        srows = ws_s.get_all_values()
+
+        o_idx = next((i for i, r in enumerate(orows) if i > 0 and r and r[0] == order_num), None)
+        if o_idx is None:
+            return _cors(jsonify({"status": "error", "message": "order not found"})), 404
+        orow = list(orows[o_idx]) + [""] * (20 - len(orows[o_idx]))
+        if str(orow[8]).startswith("[ВИДАЛЕНО]"):
+            return _cors(jsonify({"status": "error", "message": "order deleted"})), 400
+        if _extract_amount(orow[11]) > 0:
+            return _cors(jsonify({"status": "error", "message": "order already has final payment"})), 400
+
+        mine = [(i, r) for i, r in enumerate(irows) if i > 0 and len(r) > 1 and r[0] == order_num]
+        nums = [r[1] for _, r in mine]
+        status_of = {r[1]: (r[6] if len(r) > 6 else "") for _, r in mine}
+        if not move or any(m not in nums for m in move):
+            return _cors(jsonify({"status": "error", "message": "bad items"})), 400
+        if any(status_of[m] == "📦 Виданий" for m in move):
+            return _cors(jsonify({"status": "error", "message": "issued item cannot be moved"})), 400
+        if len(move) >= len(nums):
+            return _cors(jsonify({"status": "error", "message": "nothing left in original"})), 400
+
+        pay = str(orow[5])
+        is_prepay = "Передплата" in pay or "Передоплата" in pay
+        prepay = _extract_amount(pay) if is_prepay else 0
+        moved_total = sum(_extract_amount(r[5]) if len(r) > 5 else 0 for _, r in mine if r[1] in move)
+        if transfer < 0 or transfer > prepay or transfer > moved_total:
+            return _cors(jsonify({"status": "error", "message": "bad prepay transfer"})), 400
+
+        base = order_num.split("/")[0]
+        mx = 1
+        for r in orows[1:]:
+            if r and r[0].startswith(base + "/"):
+                tail = r[0].split("/", 1)[1]
+                if tail.isdigit():
+                    mx = max(mx, int(tail))
+        new_num = f"{base}/{mx + 1}"
+
+        def pay_str(amount):
+            return "Передплата: " + f"{int(amount):,}".replace(",", " ") + " ₴"
+
+        left_prepay = prepay - transfer
+        new_row = list(orow)
+        new_row[0] = new_num
+        new_row[6] = deadline or "Без терміну"
+        new_row[8] = f"Розділено з {order_num}"
+        new_row[7] = _order_status_from([status_of[m] for m in move])
+        left_status = _order_status_from([status_of[n] for n in nums if n not in move])
+        new_row[11] = ""; new_row[12] = ""; new_row[13] = ""      # доплата, спосіб, сповіщено
+        new_row[14] = ""; new_row[15] = ""; new_row[17] = ""      # бонуси, нотатка майстра
+        if is_prepay:
+            new_row[5] = pay_str(transfer) if transfer > 0 else "Післяплата"
+            if transfer == 0:
+                new_row[10] = ""
+            orig_pay = pay_str(left_prepay) if left_prepay > 0 else "Післяплата"
+        else:
+            new_row[5] = pay
+            orig_pay = pay
+
+        # ── запис ──
+        ws_o.append_row(new_row, value_input_option="RAW")
+        done["new_row"] = new_num
+        if is_prepay and orig_pay != pay:
+            ws_o.batch_update([{"range": f"F{o_idx + 1}", "values": [[orig_pay]]}], raw=True)
+            done["orig_pay"] = (o_idx + 1, pay)
+        if left_status != orow[7]:
+            ws_o.batch_update([{"range": f"H{o_idx + 1}", "values": [[left_status]]}], raw=True)
+            done["orig_status"] = (o_idx + 1, orow[7])
+        for i, r in mine:
+            if r[1] in move:
+                ws_i.batch_update([{"range": f"A{i + 1}", "values": [[new_num]]}], raw=True)
+                done["items"].append(i + 1)
+        for i, r in enumerate(srows):
+            if i > 0 and len(r) > 1 and r[1] in move:
+                ws_s.batch_update([{"range": f"C{i + 1}", "values": [[new_num]]}], raw=True)
+                done["svc"].append(i + 1)
+
+        return _cors(jsonify({"status": "ok", "new_num": new_num,
+                              "original_payment": orig_pay, "new_payment": new_row[5],
+                              "original_status": left_status, "new_status": new_row[7]}))
+    except Exception as e:
+        logger.error(f"Error splitting order: {e}")
+        try:     # відкат
+            if sh is not None:
+                for rown in done["items"]:
+                    sh.worksheet("Вироби").batch_update([{"range": f"A{rown}", "values": [[order_num]]}], raw=True)
+                for rown in done["svc"]:
+                    sh.worksheet("Послуги").batch_update([{"range": f"C{rown}", "values": [[order_num]]}], raw=True)
+                if done["orig_pay"]:
+                    rown, old = done["orig_pay"]
+                    sh.worksheet("Замовлення").batch_update([{"range": f"F{rown}", "values": [[old]]}], raw=True)
+                if done.get("orig_status"):
+                    rown, old = done["orig_status"]
+                    sh.worksheet("Замовлення").batch_update([{"range": f"H{rown}", "values": [[old]]}], raw=True)
+                if done["new_row"]:
+                    ws = sh.worksheet("Замовлення")
+                    for i, r in enumerate(ws.get_all_values()):
+                        if r and r[0] == done["new_row"]:
+                            ws.delete_rows(i + 1)
+                            break
+        except Exception as e2:
+            logger.error(f"Split rollback failed: {e2}")
+        return _cors(jsonify({"status": "error", "message": str(e)})), 500
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -1265,7 +1575,7 @@ def update_tailor():
             if len(row) > 0 and row[0] == num:
                 for field, col in field_cols.items():
                     if field in data:
-                        ws.update_cell(i + 1, col, data[field])
+                        _write_field(ws, i + 1, col, field, data[field])
                 break
 
         response = jsonify({"status": "ok"})
