@@ -1125,10 +1125,20 @@ def service_add():
         ws_svc = sh.worksheet("Послуги")
         rows = ws_svc.get_all_values()
         mine = [r for r in rows[1:] if len(r) > 1 and r[1] == item_num]
-        if not mine:
-            return _cors(jsonify({"status": "error", "message": "item has no detailed services"})), 400
-        order_num = mine[0][2] if len(mine[0]) > 2 else item_num.rsplit("-", 1)[0]
-        next_j = max(_suffix_num(r[0]) for r in mine) + 1
+        if mine:
+            order_num = mine[0][2] if len(mine[0]) > 2 else item_num.rsplit("-", 1)[0]
+            next_j = max(_suffix_num(r[0]) for r in mine) + 1
+        else:
+            # Виріб без рядків у «Послуги» (новий виріб із форми правки або старий формат):
+            # беремо номер замовлення з листа «Вироби» і починаємо нумерацію з 1.
+            order_num = ""
+            for r in sh.worksheet("Вироби").get_all_values()[1:]:
+                if len(r) > 1 and r[1] == item_num:
+                    order_num = r[0]
+                    break
+            if not order_num:
+                return _cors(jsonify({"status": "error", "message": "item not found"})), 404
+            next_j = 1
         svc_num = f"{item_num}-{next_j}"
         ws_svc.append_row([svc_num, item_num, order_num, name, price, "🆕 Новий",
                            "", "", "", "", ""], value_input_option="RAW")
@@ -1138,6 +1148,42 @@ def service_add():
                               "item_total": _fmt_total(total or 0)}))
     except Exception as e:
         logger.error(f"Error adding service: {e}")
+        return _cors(jsonify({"status": "error", "message": str(e)})), 500
+
+
+@app.route("/service/delete", methods=["POST", "OPTIONS"])
+def service_delete():
+    """Видаляє одну послугу виробу і перераховує суму та статус виробу.
+    Останню послугу виробу видалити не можна (виріб без послуг не має сенсу)."""
+    if request.method == "OPTIONS":
+        return _preflight()
+    try:
+        data = request.get_json()
+        svc_num = str(data.get("svc_num", "")).strip()
+        if not svc_num:
+            raise ValueError("svc_num")
+
+        client = get_sheets_client()
+        sh = client.open_by_key(SHEET_ID)
+        ws_svc = sh.worksheet("Послуги")
+        rows = ws_svc.get_all_values()
+        item_num, row_idx = "", 0
+        for i, row in enumerate(rows):
+            if i > 0 and len(row) > 1 and row[0] == svc_num:
+                item_num, row_idx = row[1], i + 1
+                break
+        if not item_num:
+            return _cors(jsonify({"status": "error", "message": "service not found"})), 404
+        mine = [r for r in rows[1:] if len(r) > 1 and r[1] == item_num]
+        if len(mine) <= 1:
+            return _cors(jsonify({"status": "error", "message": "last service of the item"})), 400
+        ws_svc.delete_rows(row_idx)
+
+        total, _ = _recalc_item_from_services(sh, item_num, fix_status=True)
+        return _cors(jsonify({"status": "ok", "item_num": item_num,
+                              "item_total": _fmt_total(total or 0)}))
+    except Exception as e:
+        logger.error(f"Error deleting service: {e}")
         return _cors(jsonify({"status": "error", "message": str(e)})), 500
 
 
